@@ -6,6 +6,7 @@ const animals = [
   ["🦁","Leão"],["🐒","Macaco"],["🐷","Porco"],["🦚","Pavão"],["🦃","Peru"],
   ["🐂","Touro"],["🐅","Tigre"],["🐻","Urso"],["🦌","Veado"],["🐮","Vaca"]
 ];
+const STORAGE_KEY = "rifas_whatsapp_app_v1";
 
 const defaultHeader = `292 - RIFA JP FISHING BRASIL VIP*
 
@@ -92,7 +93,7 @@ let state = loadState();
 let current = "premium";
 
 function loadState(){
-  const saved = localStorage.getItem("rifas_whatsapp_app_v1");
+  const saved = localStorage.getItem(STORAGE_KEY);
   if(saved){
     const s = JSON.parse(saved);
     ["premium","vip2"].forEach(k=>{ if(s[k]){ s[k].numeroRifa=s[k].numeroRifa||""; s[k].winnerNumbers=s[k].winnerNumbers||{w1:"",w2:"",w3:""}; s[k].resultTemplates = s[k].resultTemplates || getDefaultResultTemplates(); }});
@@ -101,7 +102,7 @@ function loadState(){
   }
   return {premium:emptyMainRaffle("premium"), vip2:emptyMainRaffle("vip2"), rifaDaRifa:emptyRifaDaRifa(), savedRaffles:[]};
 }
-function persist(){ localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); render(); }
+function persist(shouldRender=true){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(shouldRender) render(); }
 function active(){ return state[current]; }
 function toast(msg){
   const el=document.getElementById("toast");
@@ -181,7 +182,7 @@ function saveResultTemplates(){
     normal: document.getElementById("templateNormal").value
   };
   markDirty();
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   toast("Templates salvos ✅");
   closeModal();
 }
@@ -303,11 +304,11 @@ function renderRifaDaRifa(){
     </table>`;
 }
 
-function updateHeader(v){ active().header=v; markDirty(); logAction("Atualização","Cabeçalho alterado"); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); }
-function updateBuyer(i,v){ active().numbers[i].buyer=v; markDirty(); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); updateWinnerButtonOnly(); }
+function updateHeader(v){ active().header=v; markDirty(); logAction("Atualização","Cabeçalho alterado"); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); }
+function updateBuyer(i,v){ active().numbers[i].buyer=v; markDirty(); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); updateWinnerButtonOnly(); }
 
 function onBuyerFocus(i,input){ input.dataset.originalBuyer = input.value || ""; showBuyerSuggestions(i, input); }
-function finalizeBuyer(i,input){ const original = input.dataset.originalBuyer || ""; const current = input.value || ""; if(original !== current){ logAction("Atualização", `Número ${i+1}: comprador alterado de "${original}" para "${current}"`); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); } }
+function finalizeBuyer(i,input){ const original = input.dataset.originalBuyer || ""; const current = input.value || ""; if(original !== current){ logAction("Atualização", `Número ${i+1}: comprador alterado de "${original}" para "${current}"`); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } }
 
 function existingBuyers(exceptIndex){
   const seen = new Set();
@@ -384,7 +385,7 @@ function updateField(k,v){
   active()[k]=v;
   markDirty();
   logAction("Atualização",`${k} alterado`);
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  persist(false);
   document.getElementById("preview").textContent=generateMessage();
   if(current==="rifaDaRifa"){
     const pill = document.querySelector('#main .pill.orange');
@@ -394,9 +395,9 @@ function updateField(k,v){
 }
 function updateSavedBadgeOnly(){ const old=document.querySelector('#main .saved-status'); if(old) old.outerHTML=savedStatusHtml(active()); }
 function updateWinnerButtonOnly(){ const b=document.getElementById('btnWinnersMain'); if(b) b.disabled = countFilled() < 20; }
-function updateNumeroRifa(v){ active().numeroRifa=v; markDirty(); logAction("Atualização","Número da rifa alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); }
-function updateNumWinners(v){ active().numWinners=Number(v); markDirty(); logAction("Atualização","Número de vencedores alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); }
-function updateNumeroRifaReferencia(v){ active().numeroRifaReferencia=v; markDirty(); logAction("Atualização","Número da rifa de referência alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); }
+function updateNumeroRifa(v){ active().numeroRifa=v; markDirty(); logAction("Atualização","Número da rifa alterado para: "+v); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); }
+function updateNumWinners(v){ active().numWinners=Number(v); markDirty(); logAction("Atualização","Número de vencedores alterado para: "+v); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
+function updateNumeroRifaReferencia(v){ active().numeroRifaReferencia=v; markDirty(); logAction("Atualização","Número da rifa de referência alterado para: "+v); localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
 function countFilled(){ return active().numbers.filter(n=>n.buyer.trim()).length; }
 function ensureRifaDaRifaCount(){ if(current!=="rifaDaRifa") return; changeRifaDaRifaCount(active().quantidadeNumeros, false); }
 function changeRifaDaRifaCount(q, rerender=true){
@@ -426,7 +427,7 @@ async function copyMessage(){
   await navigator.clipboard.writeText(msg);
   active().finalMessage=msg;
   logAction("Copiar","Mensagem copiada para WhatsApp",msg);
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   toast("Mensagem copiada ✅");
 }
 
@@ -446,7 +447,7 @@ function saveValueConfig(){
   active().values.oneQuota=Number(document.getElementById("oneQuota").value||0);
   active().values.twoQuotaPromo=Number(document.getElementById("twoQuotaPromo").value||0);
   markDirty(); logAction("Valores","Configuração de valores atualizada");
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   document.getElementById("valuesArea").innerHTML=renderValuesTable();
   document.getElementById("preview").textContent=generateMessage();
   toast("Valores salvos ✅");
@@ -473,7 +474,7 @@ async function copyValues(){
   const msg="💰 RESUMO DE VALORES\n\n"+rows.map(r=>`${r.buyer}\nCotas: ${r.qty}\nNúmeros: ${r.numbers.join(", ")}\nTotal: R$ ${money(r.total)}\nPago: R$ ${money(r.paidValue)}\nPendente: R$ ${money(r.pendingValue)}\nStatus: ${r.status}`).join("\n\n");
   await navigator.clipboard.writeText(msg);
   logAction("Copiar valores","Resumo de valores copiado",msg);
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   toast("Resumo copiado ✅");
 }
 
@@ -539,7 +540,7 @@ function calculateWinners(){
       msg = raffleHeader + body;
       active().winners=[]; active().lastWinnerMessage=msg; markDirty();
       logAction("Ganhadores","Nenhum comprador no número sorteado: "+firstNum, msg);
-      localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       const el=document.getElementById("winnerResult"); el.textContent=msg; el.style.display="block";
       navigator.clipboard.writeText(msg); toast("Resultado copiado ✅");
       return;
@@ -593,7 +594,7 @@ function calculateWinners(){
 
   active().winners=winners; active().lastWinnerMessage=msg; markDirty();
   logAction("Ganhadores","Resultado de ganhadores gerado",msg);
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const el=document.getElementById("winnerResult"); el.textContent=msg; el.style.display="block";
   navigator.clipboard.writeText(msg); toast("Resultado copiado ✅");
 }
@@ -678,7 +679,7 @@ function calculateSavedWinners(idx){
   r.winnerNumbers = winnerVals;
   r.winners = result.winners;
   r.lastWinnerMessage = result.message;
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const el=document.getElementById("savedWinnerResult"); if(el){ el.textContent=result.message; el.style.display="block"; }
   toast("Ganhadores atualizados ✅");
 }
@@ -774,7 +775,7 @@ function saveRaffle(){
   logAction("Salvar","Rifa salva no histórico local",msg);
   const r=JSON.parse(JSON.stringify(active())); r.savedAt=active().lastSavedAt;
   state.savedRaffles.unshift(r);
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); render(); toast("Rifa salva ✅");
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); toast("Rifa salva ✅");
 }
 function exportJSON(){
   const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
@@ -811,7 +812,7 @@ function resetCurrent(){
   state[current] = applySavedConfigToNewRaffle(fresh, lastSaved);
   state[current].hasUnsavedChanges = true;
   state[current].lastSavedAt = null;
-  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   render();
 }
 function money(v){ return Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
