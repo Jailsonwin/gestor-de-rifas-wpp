@@ -623,13 +623,15 @@ function renderSavedRafflesList(){
   area.innerHTML = `<table><thead><tr><th>Data</th><th>Tipo</th><th>Nº Rifa</th><th>Resumo</th><th>Ações</th></tr></thead><tbody>${items.map(r=>`<tr><td>${new Date(r.savedAt||r.createdAt).toLocaleString('pt-BR')}</td><td><span class="pill">${labelType(r.type)}</span></td><td>${r.type==='rifaDaRifa' ? escapeHtml(r.numeroRifaReferencia||'—') : escapeHtml(r.numeroRifa||'—')}</td><td>${escapeHtml((r.header||'').split('\n')[0] || 'Sem cabeçalho')}</td><td><button onclick="showSavedRaffleDetails(${r._idx})">Ver detalhes</button></td></tr>`).join('')}</tbody></table>`;
 }
 function showSavedRaffleDetails(idx){
-  const r=(state.savedRaffles||[])[idx]; if(!r) return;
+  const safeIdx = Number(idx);
+  if(!Number.isFinite(safeIdx)) return;
+  const r=(state.savedRaffles||[])[safeIdx]; if(!r) return;
   const winners=(r.winners||[]).length ? (r.winners||[]).map(w=>`${w.order}º - ${String(w.num).padStart(2,'0')} - ${escapeHtml(w.buyer||'')}`).join('<br>') : 'Não informado';
   const valuesHtml = renderValuesTableForRaffle(r);
   const numLabel = r.type==='rifaDaRifa' ? `Rifa de referência: <strong>${escapeHtml(r.numeroRifaReferencia||'—')}</strong>` : `Número da rifa: <strong>${escapeHtml(r.numeroRifa||'—')}</strong>`;
   openModal('Detalhes da rifa salva', `
     <p style="margin-bottom:12px"><span class="pill">${labelType(r.type)}</span> &nbsp; <span class="small">Salva em ${new Date(r.savedAt||r.createdAt).toLocaleString('pt-BR')}</span> &nbsp; <span class="small">${numLabel}</span></p>
-    <div class="actions" style="margin: 0 0 16px"><button class="green" onclick="editSavedWinners(${idx})">Editar ganhadores</button></div>
+    <div class="actions" style="margin: 0 0 16px"><button class="green" onclick="editSavedWinners(${safeIdx})">Editar ganhadores</button></div>
     <h3>Template / Cabeçalho</h3><div class="message-box">${escapeHtml(r.header||'')}</div>
     <h3>Ganhadores</h3><div class="message-box">${winners}</div>
     <h3>Valores</h3>${valuesHtml}
@@ -638,7 +640,9 @@ function showSavedRaffleDetails(idx){
   `);
 }
 function editSavedWinners(idx){
-  const r=(state.savedRaffles||[])[idx]; if(!r) return;
+  const safeIdx = Number(idx);
+  if(!Number.isFinite(safeIdx)) return;
+  const r=(state.savedRaffles||[])[safeIdx]; if(!r) return;
   const max=(r.numbers||[]).length || 0;
   const numWinners = r.numWinners || 3;
   const wn = r.winnerNumbers || {w1:"",w2:"",w3:""};
@@ -651,7 +655,7 @@ function editSavedWinners(idx){
     <div class="two">
       ${fields.join('')}
     </div>
-    <div class="actions"><button class="green" onclick="calculateSavedWinners(${idx})">💾 Salvar ganhadores</button></div>
+    <div class="actions"><button class="green" onclick="calculateSavedWinners(${safeIdx})">💾 Salvar ganhadores</button></div>
     <div id="savedWinnerResult" class="message-box" style="margin-top:14px;display:none"></div>
   `);
   if(r.lastWinnerMessage){
@@ -659,7 +663,9 @@ function editSavedWinners(idx){
   }
 }
 function calculateSavedWinners(idx){
-  const r=(state.savedRaffles||[])[idx]; if(!r) return;
+  const safeIdx = Number(idx);
+  if(!Number.isFinite(safeIdx)) return;
+  const r=(state.savedRaffles||[])[safeIdx]; if(!r) return;
   const numWinners = r.numWinners || 3;
   const winnerVals = {};
   const inputNums = [];
