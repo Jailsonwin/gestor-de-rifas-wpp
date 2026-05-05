@@ -251,7 +251,7 @@ function renderMainRaffle(){
       <thead><tr><th>Nº</th><th>Animal</th><th>Comprador</th><th class="paid-cell">Pago</th></tr></thead>
       <tbody>
         ${r.numbers.map((n,i)=>`
-          <tr class="${n.paid?'row-paid':(n.buyer.trim()?'row-reserved':'row-pending')}">
+          <tr id="row-${i}" class="${n.paid?'row-paid':(n.buyer.trim()?'row-reserved':'row-pending')}">
             <td><span class="num-badge">${n.number}</span></td>
             <td><div class="animal"><span>${n.emoji}</span><span class="animal-name">${n.animal}</span></div></td>
             <td><div class="buyer-wrap"><input placeholder="Nome do comprador" value="${escapeAttr(n.buyer)}" autocomplete="off" oninput="updateBuyer(${i},this.value); showBuyerSuggestions(${i}, this)" onfocus="onBuyerFocus(${i}, this)" onkeydown="handleBuyerKeydown(event, ${i}, this)" onblur="hideBuyerSuggestionsLater(this); finalizeBuyer(${i}, this)"><div class="buyer-suggest"></div></div></td>
@@ -293,7 +293,7 @@ function renderRifaDaRifa(){
       <thead><tr><th>Nº</th><th>Comprador</th><th class="paid-cell">Pago</th></tr></thead>
       <tbody>
         ${r.numbers.map((n,i)=>`
-          <tr class="${n.paid?'row-paid':(n.buyer.trim()?'row-reserved':'row-pending')}">
+          <tr id="row-${i}" class="${n.paid?'row-paid':(n.buyer.trim()?'row-reserved':'row-pending')}">
             <td><span class="num-badge">${n.number}</span></td>
             <td><div class="buyer-wrap"><input placeholder="Nome do comprador" value="${escapeAttr(n.buyer)}" autocomplete="off" oninput="updateBuyer(${i},this.value); showBuyerSuggestions(${i}, this)" onfocus="onBuyerFocus(${i}, this)" onkeydown="handleBuyerKeydown(event, ${i}, this)" onblur="hideBuyerSuggestionsLater(this); finalizeBuyer(${i}, this)"><div class="buyer-suggest"></div></div></td>
             <td class="paid-cell"><label class="switch"><input type="checkbox" ${n.paid?"checked":""} onchange="handlePaidToggle(${i},this.checked)"><span class="slider"></span></label></td>
@@ -303,7 +303,7 @@ function renderRifaDaRifa(){
 }
 
 function updateHeader(v){ active().header=v; markDirty(); logAction("Atualização","Cabeçalho alterado"); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); }
-function updateBuyer(i,v){ active().numbers[i].buyer=v; markDirty(); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); updateWinnerButtonOnly(); }
+function updateBuyer(i,v){ active().numbers[i].buyer=v; markDirty(); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); updateWinnerButtonOnly(); const row=document.getElementById('row-'+i); if(row){ const n=active().numbers[i]; row.className=n.paid?'row-paid':(n.buyer.trim()?'row-reserved':'row-pending'); } }
 
 function onBuyerFocus(i,input){ input.dataset.originalBuyer = input.value || ""; showBuyerSuggestions(i, input); }
 function finalizeBuyer(i,input){ const original = input.dataset.originalBuyer || ""; const current = input.value || ""; if(original !== current){ logAction("Atualização", `Número ${i+1}: comprador alterado de "${original}" para "${current}"`); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); } }
