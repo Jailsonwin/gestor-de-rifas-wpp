@@ -1132,7 +1132,7 @@ function confirmBulkPay(encodedBuyer){
   closeModal(); persist(); toast("Comprador marcado como pago ✅");
 }
 function updatePaid(i,v){ active().numbers[i].paid=v; markDirty(); logAction("Pagamento",`Número ${i+1}: marcado como ${v?"pago":"pendente"}`); persist(); }
-function updateField(k,v){ active()[k]=v; markDirty(); logAction("Atualização",`${k} alterado`); persist(); }
+function updateField(k,v){ active()[k]=v; markDirty(); logAction("Atualização",`${k} alterado`); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); }
 function updateSavedBadgeOnly(){ const old=document.querySelector('#main .saved-status'); if(old) old.outerHTML=savedStatusHtml(active()); }
 function updateWinnerButtonOnly(){ const b=document.getElementById('btnWinnersMain'); if(b) b.disabled = countFilled() < 20; }
 function updateNumeroRifa(v){ active().numeroRifa=v; markDirty(); logAction("Atualização","Número da rifa alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); }
