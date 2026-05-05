@@ -149,20 +149,7 @@
       margin-left: auto;
     }
 
-    .top-clock {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 110px;
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      background: rgba(255,255,255,0.06);
-      color: var(--txt);
-      font-size: 13px;
-      font-weight: 600;
-      border: 1px solid rgba(255,255,255,0.08);
-      letter-spacing: 0.2px;
-    }
+
 
     .alert-overlay {
       position: fixed;
@@ -700,7 +687,6 @@
         <button class="yellow" onclick="exportJSON()">↓ Export</button>
         <button class="red" onclick="resetCurrent()">Limpar</button>
       </div>
-      <div class="top-clock" id="topClock">00:00:00</div>
     </div>
   </div>
 
@@ -838,12 +824,7 @@ function loadState(){
 function persist(){ localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); render(); }
 function active(){ return state[current]; }
 function updateClock(){
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  document.getElementById('topClock').textContent = `${hours}:${minutes}:${seconds}`;
-  updateAlertState(now);
+  updateAlertState(new Date());
 }
 function updateAlertState(now){
   const targets = [
