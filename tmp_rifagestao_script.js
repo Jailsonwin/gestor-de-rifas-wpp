@@ -623,9 +623,13 @@ function renderSavedRafflesList(){
   if(!items.length){ area.innerHTML='<p class="small">Nenhuma rifa salva encontrada.</p>'; return; }
   area.innerHTML = `<table><thead><tr><th>Data</th><th>Tipo</th><th>Nº Rifa</th><th>Resumo</th><th>Ações</th></tr></thead><tbody>${items.map(r=>`<tr><td>${new Date(r.savedAt||r.createdAt).toLocaleString('pt-BR')}</td><td><span class="pill">${labelType(r.type)}</span></td><td>${r.type==='rifaDaRifa' ? escapeHtml(r.numeroRifaReferencia||'—') : escapeHtml(r.numeroRifa||'—')}</td><td>${escapeHtml((r.header||'').split('\n')[0] || 'Sem cabeçalho')}</td><td><button onclick="showSavedRaffleDetails(${r._idx})">Ver detalhes</button></td></tr>`).join('')}</tbody></table>`;
 }
-function showSavedRaffleDetails(idx){
+function normalizeSavedRaffleIndex(idx){
   const safeIdx = Number(idx);
-  if(!Number.isFinite(safeIdx)) return;
+  return Number.isFinite(safeIdx) ? safeIdx : null;
+}
+function showSavedRaffleDetails(idx){
+  const safeIdx = normalizeSavedRaffleIndex(idx);
+  if(safeIdx === null) return;
   const r=(state.savedRaffles||[])[safeIdx]; if(!r) return;
   const winners=(r.winners||[]).length ? (r.winners||[]).map(w=>`${w.order}º - ${String(w.num).padStart(2,'0')} - ${escapeHtml(w.buyer||'')}`).join('<br>') : 'Não informado';
   const valuesHtml = renderValuesTableForRaffle(r);
@@ -641,8 +645,8 @@ function showSavedRaffleDetails(idx){
   `);
 }
 function editSavedWinners(idx){
-  const safeIdx = Number(idx);
-  if(!Number.isFinite(safeIdx)) return;
+  const safeIdx = normalizeSavedRaffleIndex(idx);
+  if(safeIdx === null) return;
   const r=(state.savedRaffles||[])[safeIdx]; if(!r) return;
   const max=(r.numbers||[]).length || 0;
   const numWinners = r.numWinners || 3;
@@ -664,8 +668,8 @@ function editSavedWinners(idx){
   }
 }
 function calculateSavedWinners(idx){
-  const safeIdx = Number(idx);
-  if(!Number.isFinite(safeIdx)) return;
+  const safeIdx = normalizeSavedRaffleIndex(idx);
+  if(safeIdx === null) return;
   const r=(state.savedRaffles||[])[safeIdx]; if(!r) return;
   const numWinners = r.numWinners || 3;
   const winnerVals = {};
