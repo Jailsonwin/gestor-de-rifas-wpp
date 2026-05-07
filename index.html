@@ -1,0 +1,2416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerenciador de Rifas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080c14;
+      --surface: #0d1320;
+      --surface2: #131b2e;
+      --surface3: #1a2440;
+      --border: rgba(255,255,255,0.07);
+      --border-strong: rgba(255,255,255,0.12);
+      --txt: #f0f4ff;
+      --txt-muted: #6b7a99;
+      --txt-dim: #3d4d6b;
+      --accent: #FF4D1C;
+      --accent-glow: rgba(255,77,28,0.25);
+      --accent-dim: rgba(255,77,28,0.12);
+      --green: #00e096;
+      --green-dim: rgba(0,224,150,0.12);
+      --red: #ff4466;
+      --red-dim: rgba(255,68,102,0.12);
+      --yellow: #ffd060;
+      --yellow-dim: rgba(255,208,96,0.12);
+      --blue: #4488ff;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --radius-xs: 6px;
+      --ambient-glow: rgba(255,77,28,0.06);
+    }
+
+    /* Temas */
+    body.vip {
+      --bg: #0a1a0a;
+      --surface: #1a2a1a;
+      --surface2: #2a3a2a;
+      --surface3: #3a4a3a;
+      --accent: #00e096;
+      --accent-glow: rgba(0,224,150,0.25);
+      --accent-dim: rgba(0,224,150,0.12);
+      --ambient-glow: rgba(0,224,150,0.06);
+    }
+
+    body.premium {
+      --bg: #1a0a0a;
+      --surface: #2a1a1a;
+      --surface2: #3a2a2a;
+      --surface3: #4a3a3a;
+      --accent: #ff4466;
+      --accent-glow: rgba(255,68,102,0.25);
+      --accent-dim: rgba(255,68,102,0.12);
+      --ambient-glow: rgba(255,68,102,0.06);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background noise texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.6;
+    }
+
+    /* Ambient glow */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 500px;
+      background: radial-gradient(ellipse, var(--ambient-glow) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── HEADER ── */
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 14px 0 12px;
+      background: rgba(8,12,20,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      transition: padding 0.25s ease;
+    }
+    .top--shrunk { padding: 8px 0; }
+    .top--shrunk .hide-on-shrink { display: none !important; }
+    .top--shrunk .tabs { margin-left: 0; }
+
+    .prize-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .prize-field-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+    .prize-field-label { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; }
+    .prize-field-wrap textarea { min-height: 72px; font-size: 13px; margin: 0; background: var(--surface3); }
+    .top-inner {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--txt);
+    }
+    h1 span { color: var(--accent); }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .top-clock {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 110px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.06);
+      color: var(--txt);
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.08);
+      letter-spacing: 0.2px;
+    }
+
+    .alert-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: transparent;
+      transition: background 0.3s ease;
+      z-index: 0;
+    }
+    body.orange-alert .alert-overlay { background: rgba(255,140,0,0.12); }
+    body.red-alert .alert-overlay { background: rgba(255,34,34,0.14); }
+    body.blue-alert .alert-overlay { background: rgba(72,132,255,0.16); }
+
+    /* ── BUTTONS ── */
+    button {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 13px;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      color: var(--txt-muted);
+      background: var(--surface2);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      border: 1px solid var(--border);
+      letter-spacing: 0.1px;
+    }
+    button:hover { background: var(--surface3); color: var(--txt); border-color: var(--border-strong); }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+    button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+    button.primary:hover { filter: brightness(1.1); box-shadow: 0 4px 20px var(--accent-glow); }
+    button.green { background: var(--green-dim); color: var(--green); border-color: rgba(0,224,150,0.2); font-weight: 600; }
+    button.green:hover { background: rgba(0,224,150,0.2); }
+    button.red { background: var(--red-dim); color: var(--red); border-color: rgba(255,68,102,0.2); font-weight: 600; }
+    button.red:hover { background: rgba(255,68,102,0.2); }
+    button.yellow { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(255,208,96,0.2); font-weight: 600; }
+    button.yellow:hover { background: rgba(255,208,96,0.2); }
+    button.close { background: var(--surface3); color: var(--txt-muted); }
+
+    /* ── LAYOUT ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.015) 0%, transparent 60%);
+      pointer-events: none;
+      border-radius: 20px;
+    }
+
+    h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--txt);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--txt-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 18px 0 10px;
+    }
+
+    /* ── FORM ELEMENTS ── */
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--txt-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin: 14px 0 5px;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      background: var(--surface2);
+      color: var(--txt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 13px;
+      font-size: 13.5px;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+    textarea:focus, input:focus, select:focus {
+      border-color: rgba(255,77,28,0.5);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    textarea {
+      min-height: 200px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    /* ── TABLE ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin-top: 12px;
+    }
+    th {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--txt-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      background: var(--surface);
+      position: sticky;
+      top: 86px;
+      z-index: 3;
+    }
+    td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr { transition: background 0.12s; }
+    tr:hover td { background: rgba(255,255,255,0.018); }
+
+    .row-paid td { background: rgba(255,255,255,0.04); }
+    .row-paid:hover td { background: rgba(255,255,255,0.07) !important; }
+    .row-filled td { background: rgba(255,140,30,0.08); }
+    .row-filled:hover td { background: rgba(255,140,30,0.14) !important; }
+
+    /* number badge */
+    .num-badge {
+      width: 36px;
+      height: 36px;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      color: var(--txt);
+      letter-spacing: -0.5px;
+    }
+    .row-paid .num-badge { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); color: var(--txt); }
+    .row-filled .num-badge { background: rgba(255,140,30,0.15); border-color: rgba(255,140,30,0.3); color: var(--yellow); }
+
+    .animal { font-size: 18px; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .animal-name { font-size: 12px; color: var(--txt-muted); }
+
+    /* status pills */
+    .status-ok { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-size: 12px; font-weight: 600; }
+    .status-ok::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .status-bad { display: inline-flex; align-items: center; gap: 5px; color: var(--red); font-size: 12px; font-weight: 600; }
+    .status-bad::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .status-vago { color: var(--txt-dim); font-size: 12px; }
+
+    /* ── TOGGLE SWITCH ── */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: var(--surface3);
+      transition: 0.2s;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--txt-dim);
+      transition: 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border-radius: 50%;
+    }
+    .switch input:checked + .slider { background: var(--green-dim); border-color: rgba(0,224,150,0.3); }
+    .switch input:checked + .slider::before { transform: translateX(20px) translateY(-50%); background: var(--green); }
+
+    .paid-cell { width: 60px; text-align: center; }
+
+    /* ── BUYER AUTOCOMPLETE ── */
+    .buyer-wrap { position: relative; }
+    .buyer-suggest {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 5px);
+      background: var(--surface2);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+      z-index: 50;
+      max-height: 140px;
+      overflow: auto;
+      display: none;
+    }
+    .buyer-suggest button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border-radius: 0;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      padding: 9px 13px;
+      color: var(--txt);
+      font-weight: 500;
+    }
+    .buyer-suggest button:last-child { border-bottom: none; }
+    .buyer-suggest button:hover,
+    .buyer-suggest button.active { background: var(--surface3); color: var(--txt); }
+
+    /* ── ACTIONS BAR ── */
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 14px;
+      margin-bottom: 6px;
+    }
+
+    /* ── PILL ── */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      padding: 4px 11px;
+      font-size: 11.5px;
+      font-weight: 600;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--txt-muted);
+      white-space: nowrap;
+    }
+    .pill.orange { background: var(--accent-dim); border-color: rgba(255,77,28,0.2); color: var(--accent); }
+
+    /* ── SAVED STATUS ── */
+    .saved-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid;
+      white-space: nowrap;
+    }
+    .saved-status.dirty { color: var(--yellow); border-color: rgba(255,208,96,0.25); background: var(--yellow-dim); }
+    .saved-status.saved { color: var(--green); border-color: rgba(0,224,150,0.25); background: var(--green-dim); }
+
+    /* ── PREVIEW PANEL ── */
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .preview-header h2 { margin-bottom: 0; }
+    .preview-subtitle {
+      font-size: 11.5px;
+      color: var(--txt-muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preview-subtitle::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .preview {
+      white-space: pre-wrap;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      max-height: 450px;
+      overflow-y: auto;
+      font-size: 12.5px;
+      color: #c8d3ef;
+      line-height: 1.6;
+      font-family: 'DM Sans', sans-serif;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface3) transparent;
+    }
+
+    .big-copy {
+      width: 100%;
+      margin-top: 14px;
+      font-size: 14px;
+      padding: 13px;
+      border-radius: var(--radius);
+    }
+
+    .mobile-copy { display: none; }
+
+    /* ── BULK PAY CONTROL ── */
+    .bulk-pay-control {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: var(--txt-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── MODAL ── */
+    dialog {
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--txt);
+      max-width: 860px;
+      width: min(94vw, 860px);
+      padding: 0;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.7);
+      margin: auto;
+    }
+    dialog::backdrop { background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .modal-head strong {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      flex: 1;
+      min-width: 0;
+    }
+    .modal-body {
+      padding: 16px 18px;
+      max-height: 80vh;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface3) transparent;
+    }
+    .modal-body th { position: static; background: var(--surface2); }
+
+    /* ── PAYMENT CARD LAYOUT ── */
+    .pay-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .pay-card-title {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.7px; color: var(--txt-muted); margin-bottom: 10px;
+    }
+    .pay-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
+      gap: 8px;
+    }
+    .pay-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .pay-row-label { color: var(--txt-muted); flex-shrink: 0; }
+    .pay-row-value { font-weight: 600; text-align: right; word-break: break-word; }
+    .pay-row-value.green { color: var(--green); }
+    .pay-row-value.yellow { color: var(--yellow); }
+    .pay-row-value.big { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; }
+    .pay-credit-box {
+      background: rgba(0,224,150,0.07); border: 1px solid rgba(0,224,150,0.2);
+      border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 10px;
+    }
+    .pay-credit-header { font-weight: 700; color: var(--green); font-size: 14px; margin-bottom: 10px; }
+    .pay-credit-calc { font-size: 13px; color: var(--txt-muted); margin-top: 8px; padding: 10px 12px; background: var(--surface3); border-radius: 6px; }
+
+    @media (max-width: 520px) {
+      .modal-head { padding: 14px 14px; }
+      .modal-body { padding: 14px 14px; max-height: 82vh; }
+      .pay-card { padding: 12px 14px; }
+      .pay-row { font-size: 13px; }
+    }
+    .message-box {
+      white-space: pre-wrap;
+      font-family: 'DM Sans', sans-serif;
+      line-height: 1.6;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: 13px;
+      color: #c8d3ef;
+    }
+
+    /* ── TWO GRID ── */
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      bottom: auto;
+      background: var(--surface2);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 13px 18px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--txt);
+      display: none;
+      z-index: 9999;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      animation: slideIn 0.25s ease;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-16px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ── SMALL TEXT ── */
+    .small { font-size: 12px; color: var(--txt-muted); }
+
+    /* ── PROGRESS BAR ── */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--surface3);
+      border-radius: 999px;
+      margin: 8px 0 16px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #ff7f5a);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ── SUMMARY CARDS ── */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .summary-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+    }
+    .summary-card-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; color: var(--txt-muted); margin-bottom: 4px; }
+    .summary-card-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; }
+    .summary-card-value.green { color: var(--green); }
+    .summary-card-value.orange { color: var(--accent); }
+    .summary-card-value.dim { color: var(--txt-muted); }
+
+    /* ── BOTÃO FLUTUANTE (MOBILE) ── */
+    .floating-copy-btn {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      font-size: 28px;
+      cursor: pointer;
+      z-index: 500;
+      box-shadow: 0 8px 24px var(--accent-glow);
+      transition: all 0.2s ease;
+      color: white;
+    }
+    .floating-copy-btn:active { transform: scale(0.95); }
+    .floating-copy-btn:hover { box-shadow: 0 12px 36px var(--accent-glow); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .grid, .two { grid-template-columns: 1fr; }
+      .app { padding: 0 12px 32px; }
+      .top-inner { gap: 10px; }
+      .tabs { margin-left: 0; }
+      .summary-row { grid-template-columns: repeat(3, 1fr); }
+      .mobile-copy { display: inline-block; }
+      .desktop-copy { display: none; }
+      .bulk-pay-control { margin-left: 0; width: 100%; justify-content: space-between; }
+      th { position: static; }
+      .floating-copy-btn { display: flex; align-items: center; justify-content: center; }
+    }
+    @media (max-width: 520px) {
+      .summary-row { grid-template-columns: 1fr 1fr; }
+      .summary-row .summary-card:last-child { grid-column: 1 / -1; }
+      table { font-size: 12px; }
+      td, th { padding: 6px 7px; }
+    }
+    /* ── CLIENTS MODULE ── */
+    .client-credit-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(0,224,150,0.12); border: 1px solid rgba(0,224,150,0.25);
+      color: var(--green); border-radius: 999px; padding: 2px 8px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .client-credit-badge.zero { background: var(--surface3); border-color: var(--border); color: var(--txt-dim); }
+    .suggest-item-db { border-left: 2px solid var(--accent) !important; }
+    .suggest-item-last { border-left: 2px solid var(--green) !important; font-weight: 600 !important; }
+    .suggest-label { font-size: 10px; color: var(--txt-dim); text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 12px 2px; pointer-events: none; display: block; }
+    .credit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .credit-row:last-child { border-bottom: none; }
+    .credit-in { color: var(--green); font-weight: 600; }
+    .credit-out { color: var(--red); font-weight: 600; }
+    .credit-summary { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 14px; }
+    .credit-summary-balance { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--green); }
+    .credit-summary-balance.zero { color: var(--txt-dim); }
+
+  </style>
+</head>
+<body>
+<div class="alert-overlay" id="alertOverlay"></div>
+<input id="importFileInput" type="file" accept="application/json" style="display:none" onchange="handleImportFile(event)">
+<div class="app">
+  <div class="top" id="topBar">
+    <div class="top-inner">
+      <div class="logo hide-on-shrink">
+        <div class="logo-icon">🎣</div>
+        <h1>JP <span>Fishing</span></h1>
+      </div>
+      <div class="tabs">
+        <button id="tab-premium" onclick="setTab('premium')">Premium</button>
+        <button id="tab-rifaDaRifa" onclick="setTab('rifaDaRifa')">Rifa da Rifa</button>
+        <button id="tab-vip2" onclick="setTab('vip2')">VIP 2</button>
+        <button id="tab-complementar" onclick="setTab('complementar')">Rifa100</button>
+        <span class="hide-on-shrink" style="display:inline-flex;gap:6px;flex-wrap:wrap">
+          <button onclick="openClientsModal()">👥 Clientes</button>
+          <button onclick="showSavedRaffles()">📁 Histórico</button>
+          <button class="yellow" onclick="triggerImportJSON()">↑ Importar</button>
+          <button class="yellow" onclick="exportJSON()">↓ Export</button>
+          <button class="red" onclick="resetCurrent()">Limpar</button>
+        </span>
+      </div>
+      <div class="top-clock hide-on-shrink" id="topClock">00:00:00</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <main class="card" id="main"></main>
+    <aside class="card">
+      <div class="preview-header">
+        <h2>Prévia</h2>
+        <button class="primary mobile-copy" onclick="copyMessage()">Copiar</button>
+      </div>
+      <div class="preview-subtitle">Mensagem pronta para colar no WhatsApp</div>
+      <div id="preview" class="preview"></div>
+      <button class="primary big-copy desktop-copy" onclick="copyMessage()">📋 Copiar mensagem para WhatsApp</button>
+    </aside>
+  </div>
+</div>
+
+<dialog id="modal">
+  <div class="modal-head">
+    <strong id="modalTitle"></strong>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button id="modalConfigBtn" class="yellow" onclick="openResultTemplatesModal()" style="display:none">⚙️ Templates</button>
+      <button id="modalCopyBtn" class="green" onclick="copyModalResult()" style="display:none">📋 Copiar</button>
+      <button class="close" onclick="closeModal()">✕ Fechar</button>
+    </div>
+  </div>
+  <div class="modal-body" id="modalBody"></div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const animals = [
+  ["🦤","Avestruz"],["🦅","Águia"],["🫏","Burro"],["🦋","Borboleta"],["🦮","Cachorro"],
+  ["🐐","Cabra"],["🐏","Carneiro"],["🐫","Camelo"],["🐍","Cobra"],["🐇","Coelho"],
+  ["🐴","Cavalo"],["🐘","Elefante"],["🐓","Galo"],["🐈","Gato"],["🐊","Jacaré"],
+  ["🦁","Leão"],["🐒","Macaco"],["🐷","Porco"],["🦚","Pavão"],["🦃","Peru"],
+  ["🐂","Touro"],["🐅","Tigre"],["🐻","Urso"],["🦌","Veado"],["🐮","Vaca"]
+];
+
+const defaultHeader = `* {{numeroRifa}} - RIFA JP FISHING BRASIL VIP*
+
+▪︎ PRÊMIO
+
+{{premiosRifa}}
+
+💰VALOR POR NÚMERO *R$ {{ValorUmaCota}}*
+💰2 NÚMEROS *R$ {{ValorDuasCotas}}*
+
+ 👉🏻 APENAS 25 números 
+
+✅PIX 
+
+Pix/Email: jpfishingbrasil@gmail.com
+Jp Fishing Brasil Ltda 
+
+🚨 *SORTEIO PELO JOGO DO BICHO DE RIO DE JANEIRO (levamos em consideração o grupo que sai na 1° milhar do jogo do bicho)*
+
+🚨 *APENAS ADM PODE ATUALIZAR A LISTA*
+
+🚨 *PAGAMENTO IMEDIATO*
+
+🚨 *ENVIAR O COMPROVANTE DO PAGAMENTO NO GRUPO*
+
+🚨 *EQUIPAMENTO 100% ORIGINAL, DIRETO DO JAPÃO*
+
+🚨 *obs.: Obrigatório estar no grupo, quando for divulgado o resultado. Não é permitido qualquer postagens não referente a rifa*(podendo ser retirado do grupo)`;
+
+const defaultRifaDaRifaHeader = `*-RIFA DA RIFA {{NumeroDaRifaOriginal}} premium JP FISHING BRASIL*
+ 
+▪︎ PRÊMIO 
+
+{{premiosRifaDaRifa}}
+
+💰VALOR POR NÚMERO R$ {{valorPorNumero}}
+
+👉🏻 APENAS {{quantidadeNumeros}} números 
+
+✅PIX 
+
+Pix/Email: jpfishingbrasil@gmail.com
+Jp Fishing Brasil Ltda 
+
+🚨 *SORTEIO PELO SORTEADOR. COM. BR!*
+
+🚨 *PAGAMENTO IMEDIATO*
+
+🚨 *EM CASO DE NÚMERO REPETIDO O PRÊMIO VAI PARA O PRÓXIMO*
+
+🚨 *ENVIAR O COMPROVANTE DO PAGAMENTO NO GRUPO*
+
+🚨 *EQUIPAMENTO 100% ORIGINAL, DIRETO DO JAPÃO*
+
+🚨 *obs.: Obrigatório estar no grupo, quando for divulgado o resultado. Não é permitido qualquer postagens não referente a rifa*(podendo ser retirado do grupo)
+
+🚨*RIFA DE ISCA FRETE POR CONTA DO GANHADOR!*`;
+
+const defaultHeaderVip2 = `*{{numeroRifa}} - RIFA JP FISHING BRASIL VIP 2*
+ 
+▪︎ PRÊMIO 
+
+{{premiosRifa}}
+
+💰VALOR POR NÚMERO R$ {{valorUmaCota}}
+
+👉🏻 APENAS 25 números 
+
+✅PIX 
+
+Pix/Email: jpfishingbrasil@gmail.com
+Jp Fishing Brasil Ltda 
+
+🚨 *SORTEIO PELO JOGO DO BICHO DE RIO DE JANEIRO (levamos em consideração o grupo que sai na 1° milhar do jogo do bicho)*
+
+🚨 *PAGAMENTO IMEDIATO*
+
+🚨 *APENAS ADM PODE ATUALIZAR A LISTA*
+
+🚨 *EM CASO DE NÚMERO REPETIDO O PRÊMIO VAI PARA O PRÓXIMO*
+
+🚨 *ENVIAR O COMPROVANTE DO PAGAMENTO NO GRUPO*
+
+🚨 *EQUIPAMENTO 100% ORIGINAL, DIRETO DO JAPÃO*
+
+🚨 *obs.: Obrigatório estar no grupo, quando for divulgado o resultado. Não é permitido qualquer postagens não referente a rifa*(podendo ser retirado do grupo)`;
+
+const defaultHeaderComplementar = `* {{numeroRifa}} - RIFA JP FISHING BRASIL VIP*
+
+▪︎ PRÊMIO
+
+{{premiosRifa}} 
+
+💰VALOR POR COTA *R$ {{valorUmaCota}}*
+💰2 COTAS *R$ {{ValorDuasCotas}}*
+💰VALOR POR NÚMERO *{{valorPorNumero}}*
+
+ 👉🏻 APENAS 100 números 
+
+✅PIX: jpfishingbrasil@gmail.com
+
+🚨 *SORTEIO PELO JOGO DO BICHO DE RIO DE JANEIRO 
+
+🚨*O número considerado para definição do ganhador será os dois últimos dígitos da 1ª milhar*
+Exemplo: 1º ► 4095 – 24 — VEADO
+A milhar é 4095
+O grupo é definido pelos dois últimos números da milhar:
+4095 → 95
+
+🚨 *PAGAMENTO IMEDIATO*
+
+🚨 *APENAS ADM PODE ATUALIZAR A LISTA*
+
+🚨 *ENVIAR O COMPROVANTE DO PAGAMENTO NO GRUPO*
+
+🚨 *EQUIPAMENTO 100% ORIGINAL, DIRETO DO JAPÃO*
+
+🚨 *obs.: Obrigatório estar no grupo, quando for divulgado o resultado. Não é permitido qualquer postagens não referente a rifa*(podendo ser retirado do grupo)`;
+
+// ── COMPLEMENTAR HELPERS ──
+function getComplementarAnimalByNumber(num){
+  const idx = Math.ceil(num / 4) - 1;
+  return animals[Math.min(idx, animals.length - 1)];
+}
+function generateComplementarNumbers(){
+  return Array.from({length:100}, (_,i)=>{
+    const num = i + 1;
+    const a = getComplementarAnimalByNumber(num);
+    return {number:num, animal:a[1], emoji:a[0], buyer:"", paid:false};
+  });
+}
+function formatRaffleNumber(num, type){
+  if(type === 'complementar') return num === 100 ? '00' : String(num).padStart(2,'0');
+  return String(num).padStart(2,'0');
+}
+
+const emptyMainRaffle = (type) => ({
+  id: crypto.randomUUID(),
+  type,
+  createdAt: new Date().toISOString(),
+  finishedAt: null,
+  numeroRifa: "",
+  numWinners: 3,
+  prizes: {p1:"", p2:"", p3:""},
+  header: defaultHeader,
+  numbers: type==='complementar' ? generateComplementarNumbers() : Array.from({length:25},(_,i)=>({number:i+1,animal:animals[i][1],emoji:animals[i][0],buyer:"",paid:false})),
+  values:{oneQuota:178,twoQuotaPromo:320},
+  discountComplementar: false,
+  valuesComplementar:{perNumber:65, oneQuota:240, twoQuota:437},
+  winners:[],
+  winnerNumbers:{w1:"",w2:"",w3:""},
+  history:[],
+  finalMessage:"",
+  lastWinnerMessage:"",
+  resultTemplates: getDefaultResultTemplates(),
+  lastSavedAt:null,
+  hasUnsavedChanges:true,
+  payWholeBuyer:false
+});
+
+const emptyRifaDaRifa = () => ({
+  id: crypto.randomUUID(),
+  type:"rifaDaRifa",
+  createdAt: new Date().toISOString(),
+  finishedAt:null,
+  numeroRifaReferencia: "",
+  header: defaultRifaDaRifaHeader,
+  numeroRifaPrincipal:"",
+  valorCotaOriginal:100,
+  quantidadeNumeros:5,
+  numbers:Array.from({length:5},(_,i)=>({number:i+1,buyer:"",paid:false})),
+  winners:[],
+  winnerNumbers:{w1:"",w2:"",w3:""},
+  history:[],
+  finalMessage:"",
+  lastWinnerMessage:"",
+  resultTemplates: getDefaultResultTemplates(),
+  lastSavedAt:null,
+  hasUnsavedChanges:true,
+  payWholeBuyer:false
+});
+
+let state = loadState();
+let current = "premium";
+
+function loadState(){
+  const saved = localStorage.getItem("rifas_whatsapp_app_v1");
+  if(saved){
+    const s = JSON.parse(saved);
+    ["premium","vip2","complementar"].forEach(k=>{ if(s[k]){ s[k].numeroRifa=s[k].numeroRifa||""; s[k].winnerNumbers=s[k].winnerNumbers||{w1:"",w2:"",w3:""}; s[k].resultTemplates = s[k].resultTemplates || getDefaultResultTemplates(); s[k].prizes = s[k].prizes || {p1:"",p2:"",p3:""}; }});
+    if(s.rifaDaRifa){ s.rifaDaRifa.numeroRifaReferencia=s.rifaDaRifa.numeroRifaReferencia||""; s.rifaDaRifa.winnerNumbers=s.rifaDaRifa.winnerNumbers||{w1:"",w2:"",w3:""}; s.rifaDaRifa.resultTemplates = s.rifaDaRifa.resultTemplates || getDefaultResultTemplates(); }
+    // Migrate complementar from old 25-number format to 100 numbers
+    if(s.complementar && Array.isArray(s.complementar.numbers) && s.complementar.numbers.length < 100){
+      const fresh = generateComplementarNumbers();
+      const oldMap = {};
+      s.complementar.numbers.forEach(n=>{ oldMap[n.number]=n; });
+      s.complementar.numbers = fresh.map(f=>{ const old=oldMap[f.number]; return old ? {...f, buyer:old.buyer||"", paid:!!old.paid} : f; });
+    }
+    // Ensure complementar has valuesComplementar
+    if(s.complementar && !s.complementar.valuesComplementar){
+      s.complementar.valuesComplementar = {perNumber:65, oneQuota:240, twoQuota:437};
+    }
+    if(!s.clients) s.clients = [];
+    if(!s.credits) s.credits = {};
+    return s;
+  }
+  return {premium:emptyMainRaffle("premium"), vip2:emptyMainRaffle("vip2"), complementar:emptyMainRaffle("complementar"), rifaDaRifa:emptyRifaDaRifa(), savedRaffles:[], clients:[], credits:{}};
+}
+function persist(){ localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); render(); }
+function active(){ return state[current]; }
+function updateClock(){
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('topClock').textContent = `${hours}:${minutes}:${seconds}`;
+  updateAlertState(now);
+}
+function updateAlertState(now){
+  const targets = [
+    {startHour:9, startMinute:0, endHour:9, endMinute:20},
+    {startHour:11, startMinute:0, endHour:11, endMinute:20}
+  ];
+  const millis = now.getTime();
+  let state = '';
+  for(const target of targets){
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), target.startHour, target.startMinute, 0, 0).getTime();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), target.endHour, target.endMinute, 0, 0).getTime();
+    const orangeStart = start - (25 * 60 * 1000);
+    const redStart = start - (20 * 60 * 1000);
+    if(millis >= start && millis < end){ state = 'blue-alert'; break; }
+    if(millis >= redStart && millis < start){ state = 'red-alert'; break; }
+    if(millis >= orangeStart && millis < redStart){ state = 'orange-alert'; break; }
+  }
+  document.body.classList.remove('orange-alert','red-alert','blue-alert');
+  if(state) document.body.classList.add(state);
+}
+function toast(msg){
+  const el=document.getElementById("toast");
+  el.textContent=msg;
+  el.style.display="block";
+  el.style.animation='none';
+  el.offsetHeight; // reflow
+  el.style.animation='slideIn 0.25s ease';
+  setTimeout(()=>el.style.display="none",2400);
+}
+function logAction(type, detail="", message=""){
+  active().history.unshift({date:new Date().toLocaleDateString("pt-BR"), time:new Date().toLocaleTimeString("pt-BR"), type, detail, message});
+}
+function markDirty(){ active().hasUnsavedChanges = true; }
+function savedStatusHtml(r){
+  if(r.lastSavedAt && !r.hasUnsavedChanges) return '<span class="saved-status saved">✓ Salva</span>';
+  if(r.lastSavedAt && r.hasUnsavedChanges) return '<span class="saved-status dirty">⚠ Alterações pendentes</span>';
+  return '<span class="saved-status dirty">⚠ Não salva</span>';
+}
+function bulkPayControlHtml(){
+  const checked = active().payWholeBuyer ? 'checked' : '';
+  return `<div class="bulk-pay-control" title="Ao marcar um número como pago, todos os números do mesmo comprador são pagos juntos.">
+    <span>Pagar comprador inteiro</span>
+    <label class="switch"><input type="checkbox" ${checked} onchange="togglePayWholeBuyer(this.checked)"><span class="slider"></span></label>
+  </div>`;
+}
+function setTab(tab){ 
+  current=tab; 
+  document.body.className = tab === 'vip2' ? 'vip' : tab === 'premium' ? 'premium' : '';
+  render(); 
+}
+function closeModal(){ document.getElementById("modal").close(); }
+function openModal(title, body, options = {}){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").innerHTML=body;
+  document.getElementById("modalConfigBtn").style.display = options.config ? "inline-flex" : "none";
+  document.getElementById("modalCopyBtn").style.display = options.copy ? "inline-flex" : "none";
+  document.getElementById("modal").showModal();
+}
+
+function copyModalResult(){
+  const resultEl = document.getElementById("winnerResult");
+  const msg = (resultEl && resultEl.textContent.trim()) || active().lastWinnerMessage || "";
+  if(!msg){ toast("Nenhum resultado para copiar ⚠️"); return; }
+  navigator.clipboard.writeText(msg);
+  toast("Resultado copiado ✅");
+}
+
+function copyFormTemplate(){
+  const r = active();
+  const today = new Date();
+  const formattedDate = today.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const raffleNumber = current === 'rifaDaRifa' ? (r.numeroRifaReferencia || r.numeroRifa || '') : (r.numeroRifa || '');
+  const raffleType = current === 'vip2' ? 'VIP 2' : current === 'premium' ? 'Premium' : 'Rifa da Rifa';
+  const msg = `PREENCHA SEUS DADOS E O PRÊMIO.\nRESPONSÁVEL: 👉🏻 Jailson\nDATA: ${formattedDate}\nN. RIFA: ${raffleNumber} ${raffleType}\n\nPRODUTO:\nLADO DA MANIVELA:\n\nNOME:\nCPF: \nENDEREÇO:\nCIDADE: \nBAIRRO: \nESTADO: \nCEP:\nE-MAIL: \nTELEFONE: `;
+  navigator.clipboard.writeText(msg);
+  toast('Formulário copiado ✅');
+}
+
+function getDefaultResultTemplates(){
+  return {
+    vacant: `🏆 RESULTADO DA RIFA\n\n🔢 Número sorteado: {{numero}}\n❌ Este número não possui comprador.\n\nA rifa vai para o próximo sorteio.`,
+    partial: `🏆 RESULTADO DA RIFA\n\n🎯 Número sorteado: {{numero}}\nGanhador: {{buyer}}{{paid}}\n\n⚠️ Ainda existem {{vagos}} número(s) vagos nesta rifa.\n\n{{buyer}}, você deseja:\n1️⃣ Comprar os números vagos e garantir o prêmio?\n2️⃣ Aguardar o próximo sorteio?`,
+    normal: `🏆 RESULTADO DA RIFA\n\n{{winners}}\nParabéns aos ganhadores! 🎉`
+  };
+}
+
+function openResultTemplatesModal(){
+  const r = active();
+  const t = r.resultTemplates || getDefaultResultTemplates();
+  openModal("Templates de resultado", `
+    <p class="small" style="margin-bottom:12px">Personalize a mensagem de cada cenário de resultado. Use <strong>{{numeroRifa}}</strong>, <strong>{{numeroRifaReferencia}}</strong>, <strong>{{numeroRifaPrincipal}}</strong>, <strong>{{numero}}</strong>, <strong>{{buyer}}</strong>, <strong>{{paid}}</strong>, <strong>{{vagos}}</strong> e <strong>{{winners}}</strong>.</p>
+    <h3 style="margin-bottom:6px">1) Primeiro número vazio</h3>
+    <textarea id="templateVacant" style="min-height:120px">${escapeHtml(t.vacant)}</textarea>
+    <h3 style="margin:18px 0 6px">2) Ganhador com números vagos</h3>
+    <textarea id="templatePartial" style="min-height:120px">${escapeHtml(t.partial)}</textarea>
+    <h3 style="margin:18px 0 6px">3) Todos vendidos / resultado normal</h3>
+    <textarea id="templateNormal" style="min-height:120px">${escapeHtml(t.normal)}</textarea>
+    <div class="actions" style="margin-top:18px"><button class="green" onclick="saveResultTemplates()">Salvar templates</button><button onclick="closeModal()">Cancelar</button></div>
+  `);
+}
+
+function saveResultTemplates(){
+  const r = active();
+  r.resultTemplates = {
+    vacant: document.getElementById("templateVacant").value,
+    partial: document.getElementById("templatePartial").value,
+    normal: document.getElementById("templateNormal").value
+  };
+  markDirty();
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  toast("Templates salvos ✅");
+  closeModal();
+}
+
+function formatResultTemplate(template, ctx){
+  return String(template || "")
+    .replaceAll("{{numeroRifa}}", ctx.numeroRifa || "")
+    .replaceAll("{{numeroRifaReferencia}}", ctx.numeroRifaReferencia || "")
+    .replaceAll("{{numeroRifaPrincipal}}", ctx.numeroRifaPrincipal || "")
+    .replaceAll("{{numero}}", ctx.numero || "")
+    .replaceAll("{{buyer}}", ctx.buyer || "")
+    .replaceAll("{{paid}}", ctx.paid || "")
+    .replaceAll("{{vagos}}", String(ctx.vagos || ""))
+    .replaceAll("{{winners}}", ctx.winners || "")
+    .replaceAll("{{animal}}", ctx.animal || "")
+    .replaceAll("{{emoji}}", ctx.emoji || "");
+}
+
+function summaryCardsHtml(){
+  const r = active();
+  const filled = countFilled();
+  const total = r.numbers.length;
+  const paid = r.numbers.filter(n=>n.buyer.trim()&&n.paid).length;
+  const pending = r.numbers.filter(n=>n.buyer.trim()&&!n.paid).length;
+  const pct = Math.round((filled/total)*100);
+  return `
+    <div class="summary-row">
+      <div class="summary-card"><div class="summary-card-label">Preenchidos</div><div class="summary-card-value orange">${filled}<span style="font-size:13px;color:var(--txt-muted)">/${total}</span></div></div>
+      <div class="summary-card"><div class="summary-card-label">Pagos</div><div class="summary-card-value green">${paid}</div></div>
+      <div class="summary-card"><div class="summary-card-label">Pendentes</div><div class="summary-card-value dim">${pending}</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+}
+
+function render(){
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+  const btn=document.getElementById("tab-"+current); if(btn) btn.classList.add("active");
+  current==="rifaDaRifa" ? renderRifaDaRifa() : renderMainRaffle();
+  document.getElementById("preview").textContent = generateMessage();
+}
+
+function renderMainRaffle(){
+  const r=active();
+  const canWin = countFilled()>=20;
+  const title = current==="premium" ? "Rifa Premium" : current==="vip2" ? "Rifa VIP 2" : current==="complementar" ? "Rifa100" : "Rifa";
+  document.getElementById("main").innerHTML = `
+    <h2>${title} ${savedStatusHtml(r)}</h2>
+    ${summaryCardsHtml()}
+    <label>Número da rifa</label>
+    <input placeholder="Ex: 292" value="${escapeAttr(r.numeroRifa||'')}" oninput="updateNumeroRifa(this.value)">
+    <label>Número de prêmios</label>
+    <select onchange="updateNumWinners(this.value)">
+      <option value="1" ${r.numWinners==1?'selected':''}>1 prêmio</option>
+      <option value="2" ${r.numWinners==2?'selected':''}>2 prêmios</option>
+      <option value="3" ${r.numWinners==3?'selected':''}>3 prêmios</option>
+    </select>
+    <div class="prize-fields">
+      ${Array.from({length: r.numWinners||3}, (_,i)=>{
+        const slot = `p${i+1}`;
+        const ordinals = ['1º LUGAR','2º LUGAR','3º LUGAR'];
+        return `<div class="prize-field-wrap">
+          <div class="prize-field-label">${ordinals[i]}</div>
+          <textarea placeholder="Ex: ✅VARA CAPTURE 7&#39; 30LB&#10;✅PIX 1900,00" oninput="updatePrize('${slot}',this.value)">${escapeHtml((r.prizes||{})[slot]||'')}</textarea>
+        </div>`;
+      }).join('')}
+    </div>
+    ${current === 'complementar' ? `
+    <h3>Valores</h3>
+    <div class="two">
+      <div><label>Valor por número</label><input type="number" step="0.01" placeholder="0,00" value="${r.valuesComplementar?.perNumber||''}" oninput="updateInlineValue('complementar','perNumber',this.value)"></div>
+      <div><label>1 cota (4 números)</label><input type="number" step="0.01" placeholder="0,00" value="${r.valuesComplementar?.oneQuota||''}" oninput="updateInlineValue('complementar','oneQuota',this.value)"></div>
+    </div>
+    <div><label>2 cotas (8 números)</label><input type="number" step="0.01" placeholder="0,00" value="${r.valuesComplementar?.twoQuota||''}" oninput="updateInlineValue('complementar','twoQuota',this.value)"></div>
+    ` : `
+    <h3>Valores</h3>
+    <div class="two">
+      <div><label>1 número / 1 cota</label><input type="number" step="0.01" placeholder="0,00" value="${r.values?.oneQuota||''}" oninput="updateInlineValue('standard','oneQuota',this.value)"></div>
+      <div><label>2 números / 2 cotas</label><input type="number" step="0.01" placeholder="0,00" value="${r.values?.twoQuotaPromo||''}" oninput="updateInlineValue('standard','twoQuotaPromo',this.value)"></div>
+    </div>
+    `}
+    <label>Cabeçalho editável <span style="font-weight:400;color:var(--txt-dim);font-size:10px;text-transform:none">use {{numeroRifa}}, {{premiosRifa}}, {{ValorUmaCota}}, {{ValorDuasCotas}}</span></label>
+    <textarea oninput="updateHeader(this.value)">${escapeHtml(r.header)}</textarea>
+    <div class="actions">
+      <button class="primary mobile-copy" onclick="copyMessage()">📋 Copiar</button>
+      <button onclick="showHistory()">🕐 Histórico</button>
+      <button id="btnWinnersMain" class="green" ${canWin?"":"disabled"} onclick="showWinners()">🏆 Ganhadores</button>
+      <button class="yellow" onclick="showValues()">💰 Valores</button>
+      <button class="green" onclick="saveRaffle()">💾 Salvar</button>
+      ${current === 'complementar' ? `<div style="display:flex;align-items:center;gap:10px;margin-left:8px">
+        <span style="font-size:13px;color:var(--txt-muted)">Desconto em número complementar</span>
+        <label class="switch"><input type="checkbox" ${r.discountComplementar?"checked":""} onchange="toggleDiscountComplementar(this.checked)"><span class="slider"></span></label>
+      </div>` : ''}
+      ${bulkPayControlHtml()}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px">
+      <label class="switch" style="margin:0"><input type="checkbox" id="onlyVacantToggle" ${r.onlyVacant?"checked":""} onchange="toggleOnlyVacant(this.checked)"><span class="slider"></span></label>
+      <span style="font-size:13px;color:var(--txt-muted)">Mostrar apenas vagos</span>
+    </div>
+    <table>
+      <thead><tr><th>Nº</th><th>Animal</th><th>Comprador</th><th class="paid-cell">Pago</th></tr></thead>
+      <tbody>
+        ${r.numbers.filter(n=> r.onlyVacant ? !(n.buyer.trim() && n.paid) : true).map((n,_i,arr)=>{
+          const i = r.numbers.indexOf(n);
+          const rowClass = n.buyer.trim() ? (n.paid ? 'row-paid' : 'row-filled') : 'row-pending';
+          return `
+          <tr class="${rowClass}">
+            <td><span class="num-badge">${formatRaffleNumber(n.number, current)}</span></td>
+            <td><div class="animal"><span>${n.emoji}</span><span class="animal-name">${n.animal}</span></div></td>
+            <td><div class="buyer-wrap"><input placeholder="Nome do comprador" value="${escapeAttr(n.buyer)}" autocomplete="off" oninput="updateBuyer(${i},this.value); showBuyerSuggestions(${i}, this)" onfocus="onBuyerFocus(${i}, this)" onkeydown="handleBuyerKeydown(event, ${i}, this)" onblur="hideBuyerSuggestionsLater(this); finalizeBuyer(${i}, this)"><div class="buyer-suggest"></div></div></td>
+            <td class="paid-cell"><label class="switch"><input type="checkbox" ${n.paid?"checked":""} onchange="handlePaidToggle(${i},this.checked)"><span class="slider"></span></label></td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
+
+function renderRifaDaRifa(){
+  const r=active();
+  ensureRifaDaRifaCount();
+  document.getElementById("main").innerHTML = `
+    <h2>Rifa da Rifa ${savedStatusHtml(r)}</h2>
+    ${summaryCardsHtml()}
+    <label>Número da rifa de referência <span style="font-weight:400;color:var(--txt-dim);font-size:10px;text-transform:none">(rifa da qual esta é derivada)</span></label>
+    <input placeholder="Ex: 292" value="${escapeAttr(r.numeroRifaReferencia||'')}" oninput="updateNumeroRifaReferencia(this.value)">
+    <div class="two" style="margin-top:4px">
+      <div><label>Número da rifa principal <span style="font-weight:400;color:var(--txt-dim);font-size:10px;text-transform:none">use {{numeroRifaPrincipal}} no cabeçalho</span></label><input value="${escapeAttr(r.numeroRifaPrincipal)}" oninput="updateField('numeroRifaPrincipal',this.value)"></div>
+      <div><label>Valor da cota original</label><input type="number" step="0.01" value="${r.valorCotaOriginal}" oninput="updateField('valorCotaOriginal',Number(this.value))"></div>
+    </div>
+    <label>Quantidade de números</label>
+    <select onchange="changeRifaDaRifaCount(Number(this.value))">
+      <option value="5" ${r.quantidadeNumeros==5?"selected":""}>5 números — sorteia 2 números principais</option>
+      <option value="10" ${r.quantidadeNumeros==10?"selected":""}>10 números — sorteia 4 números principais</option>
+    </select>
+    <div style="margin-top:10px"><span class="pill orange">Valor por número: R$ ${money(calcRifaDaRifaValue())}</span></div>
+    <label>Cabeçalho editável <span style="font-weight:400;color:var(--txt-dim);font-size:10px;text-transform:none">use {{NumeroDaRifaOriginal}}, {{premiosRifaDaRifa}}, {{valorPorNumero}}, {{quantidadeNumeros}}</span></label>
+    <textarea oninput="updateHeader(this.value)">${escapeHtml(r.header)}</textarea>
+    <div class="actions">
+      <button class="primary mobile-copy" onclick="copyMessage()">📋 Copiar</button>
+      <button onclick="showHistory()">🕐 Histórico</button>
+      <button class="green" onclick="showWinners()">🏆 Ganhadores</button>
+      <button class="yellow" onclick="showValues()">💰 Valores</button>
+      <button class="green" onclick="saveRaffle()">💾 Salvar</button>
+      ${bulkPayControlHtml()}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px">
+      <label class="switch" style="margin:0"><input type="checkbox" id="onlyVacantToggle" ${r.onlyVacant?"checked":""} onchange="toggleOnlyVacant(this.checked)"><span class="slider"></span></label>
+      <span style="font-size:13px;color:var(--txt-muted)">Mostrar apenas vagos</span>
+    </div>
+    <table>
+      <thead><tr><th>Nº</th><th>Comprador</th><th class="paid-cell">Pago</th></tr></thead>
+      <tbody>
+        ${r.numbers.filter(n=> r.onlyVacant ? !(n.buyer.trim() && n.paid) : true).map((n,_i,arr)=>{
+          const i = r.numbers.indexOf(n);
+          const rowClass = n.buyer.trim() ? (n.paid ? 'row-paid' : 'row-filled') : 'row-pending';
+          return `
+          <tr class="${rowClass}">
+            <td><span class="num-badge">${n.number}</span></td>
+            <td><div class="buyer-wrap"><input placeholder="Nome do comprador" value="${escapeAttr(n.buyer)}" autocomplete="off" oninput="updateBuyer(${i},this.value); showBuyerSuggestions(${i}, this)" onfocus="onBuyerFocus(${i}, this)" onkeydown="handleBuyerKeydown(event, ${i}, this)" onblur="hideBuyerSuggestionsLater(this); finalizeBuyer(${i}, this)"><div class="buyer-suggest"></div></div></td>
+            <td class="paid-cell"><label class="switch"><input type="checkbox" ${n.paid?"checked":""} onchange="handlePaidToggle(${i},this.checked)"><span class="slider"></span></label></td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
+
+function updateHeader(v){ active().header=v; markDirty(); logAction("Atualização","Cabeçalho alterado"); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); }
+function updateBuyer(i,v,clientId=null){
+  const r=active();
+  r.numbers[i].buyer=v;
+  r.numbers[i].clientId = clientId !== null ? clientId : (v.trim() ? (r.numbers[i].clientId||null) : null);
+  if(v.trim()) r.lastTypedBuyer = v.trim();
+  markDirty(); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); updateSavedBadgeOnly(); updateWinnerButtonOnly();
+}
+
+function onBuyerFocus(i,input){ input.dataset.originalBuyer = input.value || ""; showBuyerSuggestions(i, input); }
+function finalizeBuyer(i,input){ const original = input.dataset.originalBuyer || ""; const current = input.value || ""; if(original !== current){ logAction("Atualização", `Número ${i+1}: comprador alterado de "${original}" para "${current}"`); localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); } }
+
+function existingBuyers(exceptIndex){
+  const seen = new Set();
+  return active().numbers
+    .map((n,idx)=>({idx, name:(n.buyer || "").trim()}))
+    .filter(x => x.name && x.idx !== exceptIndex)
+    .filter(x => { const k=x.name.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; })
+    .map(x=>x.name);
+}
+function findClientsByQuery(q){
+  if(!q || q.length < 3) return [];
+  const ql = q.toLowerCase();
+  return (state.clients||[]).filter(c=>{
+    if(c.name.toLowerCase().includes(ql)) return true;
+    return (c.aliases||[]).some(a=>a.toLowerCase().includes(ql));
+  }).slice(0,4);
+}
+function findClientByExactName(name){
+  const nl = (name||'').trim().toLowerCase();
+  return (state.clients||[]).find(c=>
+    c.name.toLowerCase()===nl || (c.aliases||[]).some(a=>a.toLowerCase()===nl)
+  ) || null;
+}
+function showBuyerSuggestions(i, input){
+  const box = input.parentElement.querySelector('.buyer-suggest');
+  const q = (input.value || '').trim().toLowerCase();
+  const r = active();
+  const lastTyped = (r.lastTypedBuyer||'').toLowerCase();
+
+  // Layer 1: current raffle names, last-typed first
+  let raffleBuyers = existingBuyers(i).filter(n => !q || n.toLowerCase().includes(q));
+  raffleBuyers.sort((a,b)=>{
+    const aLast = a.toLowerCase()===lastTyped;
+    const bLast = b.toLowerCase()===lastTyped;
+    return aLast===bLast ? 0 : aLast ? -1 : 1;
+  });
+
+  // Layer 2: client DB (3+ chars, not already in raffle list)
+  const raffleLower = new Set(raffleBuyers.map(n=>n.toLowerCase()));
+  const dbClients = findClientsByQuery(q).filter(c=>!raffleLower.has(c.name.toLowerCase()));
+
+  if(!raffleBuyers.length && !dbClients.length){ box.style.display='none'; box.innerHTML=''; return; }
+
+  let html = '';
+  if(raffleBuyers.length){
+    raffleBuyers.slice(0,4).forEach((name,idx)=>{
+      const isLast = name.toLowerCase()===lastTyped;
+      html += `<button type="button" class="${isLast?'suggest-item-last':''}" onmousedown="selectBuyerSuggestion(${i},'${encodeURIComponent(name)}',null,this)">${escapeHtml(name)}${isLast?' <span style="font-size:10px;color:var(--green)">↩ último</span>':''}</button>`;
+    });
+  }
+  if(dbClients.length){
+    html += `<span class="suggest-label">📁 Cadastro</span>`;
+    dbClients.forEach(c=>{
+      const bal = getClientBalance(c.id);
+      const creditStr = bal>0 ? ` <span class="client-credit-badge">R$ ${money(bal)}</span>` : '';
+      html += `<button type="button" class="suggest-item-db" onmousedown="selectBuyerSuggestion(${i},'${encodeURIComponent(c.name)}','${c.id}',this)">${escapeHtml(c.name)}${creditStr}</button>`;
+    });
+  }
+  box.innerHTML = html;
+  box.style.display='block';
+}
+function selectBuyerSuggestion(i, encodedName, clientId, el){
+  const name = decodeURIComponent(encodedName.trim());
+  const wrap = el.closest('.buyer-wrap');
+  const input = wrap.querySelector('input');
+  input.value = name;
+  updateBuyer(i, name, clientId||null);
+  wrap.querySelector('.buyer-suggest').style.display='none';
+  input.focus();
+}
+function handleBuyerKeydown(ev, i, input){
+  if(ev.key !== 'Tab') return;
+  const box = input.parentElement.querySelector('.buyer-suggest');
+  const first = box && box.querySelector('button');
+  if(first && box.style.display !== 'none'){
+    ev.preventDefault();
+    first.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+  }
+}
+function hideBuyerSuggestionsLater(input){
+  setTimeout(()=>{ const box = input.parentElement && input.parentElement.querySelector('.buyer-suggest'); if(box) box.style.display='none'; },150);
+}
+function togglePayWholeBuyer(v){ active().payWholeBuyer = v; markDirty(); logAction("Configuração", `Pagar comprador inteiro ${v ? "ativado" : "desativado"}`); persist(); }
+function toggleOnlyVacant(v){ active().onlyVacant = v; markDirty(); persist(); }
+function toggleDiscountComplementar(v){ active().discountComplementar = v; markDirty(); logAction("Configuração", `Desconto em número complementar ${v ? "ativado" : "desativado"}`); persist(); }
+function handlePaidToggle(i,v){
+  const r = active();
+  const item = r.numbers[i];
+  const buyer = (item.buyer || "").trim();
+  if(v && r.payWholeBuyer && buyer){
+    const buyerNumbers = r.numbers.filter(n => (n.buyer || "").trim().toLowerCase() === buyer.toLowerCase());
+    if(buyerNumbers.length > 1){ showBulkPayConfirm(buyer, buyerNumbers); render(); return; }
+  }
+  // Check credits for single number
+  if(v && buyer && item.clientId){
+    const bal = getClientBalance(item.clientId);
+    if(bal > 0){
+      const summary = getBuyerSummary().find(b=>b.buyer.trim().toLowerCase()===buyer.toLowerCase());
+      const due = summary ? summary.pendingValue : 0;
+      showCreditPayModal(item.clientId, buyer, due, ()=>updatePaid(i,v));
+      return;
+    }
+  }
+  updatePaid(i,v);
+}
+function showBulkPayConfirm(buyer, buyerNumbers){
+  const summary = getBuyerSummary().find(b => b.buyer.trim().toLowerCase() === buyer.toLowerCase());
+  const total = summary ? summary.total : 0;
+  const due = summary ? summary.pendingValue : 0;
+  const paidValue = summary ? summary.paidValue : 0;
+  const alreadyPaid = buyerNumbers.filter(n => n.paid);
+  const pending = buyerNumbers.filter(n => !n.paid);
+  const safeBuyer = encodeURIComponent(buyer);
+  const clientEntry = buyerNumbers.find(n=>n.clientId);
+  const clientId = clientEntry ? clientEntry.clientId : null;
+  const bal = clientId ? getClientBalance(clientId) : 0;
+
+  const creditBox = bal > 0 ? `
+    <div class="pay-credit-box">
+      <div class="pay-credit-header">💰 Crédito disponível: R$ ${money(bal)}</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+        <input type="checkbox" id="useCreditBulk" style="width:18px;height:18px;flex-shrink:0" onchange="updateCreditCalc(${due},${bal})">
+        <span>Usar créditos neste pagamento</span>
+      </label>
+      <div id="creditCalcArea" class="pay-credit-calc" style="display:none"></div>
+    </div>` : '';
+
+  openModal("Confirmar pagamento", `
+    <div class="pay-card">
+      <div class="pay-card-title">Comprador</div>
+      <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700">${escapeHtml(buyer)}</div>
+      <div style="font-size:12px;color:var(--txt-muted);margin-top:3px">${buyerNumbers.length} número(s) nesta rifa</div>
+    </div>
+
+    <div class="pay-card">
+      <div class="pay-card-title">Números</div>
+      <div class="pay-row">
+        <span class="pay-row-label">Todos</span>
+        <span class="pay-row-value">${escapeHtml(buyerNumbers.map(n=>n.number).join(', '))}</span>
+      </div>
+      ${alreadyPaid.length ? `<div class="pay-row">
+        <span class="pay-row-label">✅ Já pagos</span>
+        <span class="pay-row-value green">${escapeHtml(alreadyPaid.map(n=>n.number).join(', '))}</span>
+      </div>` : ''}
+      ${pending.length ? `<div class="pay-row">
+        <span class="pay-row-label">⏳ Pendentes</span>
+        <span class="pay-row-value yellow">${escapeHtml(pending.map(n=>n.number).join(', '))}</span>
+      </div>` : ''}
+    </div>
+
+    <div class="pay-card">
+      <div class="pay-card-title">Valores</div>
+      <div class="pay-row">
+        <span class="pay-row-label">Valor total</span>
+        <span class="pay-row-value">R$ ${money(total)}</span>
+      </div>
+      ${alreadyPaid.length ? `<div class="pay-row">
+        <span class="pay-row-label">Já pago</span>
+        <span class="pay-row-value green">R$ ${money(paidValue)}</span>
+      </div>` : ''}
+      <div class="pay-row">
+        <span class="pay-row-label">Pendente agora</span>
+        <span class="pay-row-value yellow big">R$ ${money(due)}</span>
+      </div>
+    </div>
+
+    ${creditBox}
+
+    <p class="small" style="margin:10px 0 14px">Apenas os números pendentes serão marcados como pagos.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="green" style="flex:1;min-width:160px;padding:13px;font-size:14px" onclick="confirmBulkPay('${safeBuyer}','${clientId||''}')">✅ Confirmar pagamento</button>
+      <button style="padding:13px;font-size:14px" onclick="closeModal(); render();">Cancelar</button>
+    </div>
+  `);
+}
+function updateCreditCalc(due, bal){
+  const checked = document.getElementById('useCreditBulk')?.checked;
+  const area = document.getElementById('creditCalcArea');
+  if(!area) return;
+  if(!checked){ area.style.display='none'; return; }
+  area.style.display='block';
+  const used = Math.min(bal, due);
+  const remaining = Math.max(0, due - bal);
+  area.innerHTML = remaining > 0
+    ? `Crédito utilizado: <strong style="color:var(--green)">R$ ${money(used)}</strong><br>Valor a complementar: <strong style="color:var(--yellow)">R$ ${money(remaining)}</strong>`
+    : `<strong style="color:var(--green)">✅ Crédito cobre o valor total</strong><br><span style="color:var(--txt-muted)">Sobra R$ ${money(bal-due)} de crédito</span>`;
+}
+function confirmBulkPay(encodedBuyer, clientId){
+  const buyer = decodeURIComponent(encodedBuyer);
+  const key = buyer.trim().toLowerCase();
+  const changed = [];
+  active().numbers.forEach(n => { if((n.buyer || "").trim().toLowerCase() === key){ n.paid = true; changed.push(n.number); } });
+  // Handle credit usage
+  if(clientId && document.getElementById('useCreditBulk')?.checked){
+    const summary = getBuyerSummary().find(b=>b.buyer.trim().toLowerCase()===key);
+    const due = summary ? summary.pendingValue : 0;
+    const bal = getClientBalance(clientId);
+    const used = Math.min(bal, due);
+    if(used > 0) applyCredit(clientId, -used, `Abatido na rifa ${active().numeroRifa||'atual'} - ${buyer}`);
+  }
+  markDirty(); logAction("Pagamento", `Comprador ${buyer}: números ${changed.join(", ")} marcados como pagos`);
+  closeModal(); persist(); toast("Comprador marcado como pago ✅");
+}
+function updatePaid(i,v){ active().numbers[i].paid=v; markDirty(); logAction("Pagamento",`Número ${i+1}: marcado como ${v?"pago":"pendente"}`); persist(); }
+function updateField(k,v){ active()[k]=v; markDirty(); logAction("Atualização",`${k} alterado`); persist(); }
+function updateSavedBadgeOnly(){ const old=document.querySelector('#main .saved-status'); if(old) old.outerHTML=savedStatusHtml(active()); }
+function updateWinnerButtonOnly(){ const b=document.getElementById('btnWinnersMain'); if(b) b.disabled = countFilled() < 20; }
+function updateNumeroRifa(v){ active().numeroRifa=v; markDirty(); logAction("Atualização","Número da rifa alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); }
+function updateNumWinners(v){ active().numWinners=Number(v); markDirty(); logAction("Atualização","Número de prêmios alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); render(); }
+function updatePrize(slot, v){ active().prizes = active().prizes || {}; active().prizes[slot]=v; markDirty(); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage(); }
+function updateInlineValue(mode, field, v){
+  const val = parseFloat(v) || 0;
+  if(mode === 'complementar'){
+    active().valuesComplementar = active().valuesComplementar || {};
+    active().valuesComplementar[field] = val;
+  } else {
+    active().values = active().values || {};
+    active().values[field] = val;
+  }
+  markDirty(); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); document.getElementById("preview").textContent=generateMessage();
+}
+function updateNumeroRifaReferencia(v){ active().numeroRifaReferencia=v; markDirty(); logAction("Atualização","Número da rifa de referência alterado para: "+v); localStorage.setItem("rifas_whatsapp_app_v1",JSON.stringify(state)); }
+function countFilled(){ return active().numbers.filter(n=>n.buyer.trim()).length; }
+function ensureRifaDaRifaCount(){ if(current!=="rifaDaRifa") return; changeRifaDaRifaCount(active().quantidadeNumeros, false); }
+function changeRifaDaRifaCount(q, rerender=true){
+  const r=active(); r.quantidadeNumeros=q;
+  while(r.numbers.length<q) r.numbers.push({number:r.numbers.length+1,buyer:"",paid:false});
+  r.numbers=r.numbers.slice(0,q).map((n,i)=>({...n,number:i+1}));
+  if(rerender){ markDirty(); logAction("Atualização",`Quantidade de números alterada para ${q}`); persist(); }
+}
+
+function buildPremiosText(r){
+  const num = r.numWinners || 3;
+  const ordinals = ['1 LUGAR','2 LUGAR','3 LUGAR'];
+  return Array.from({length:num}, (_,i)=>{
+    const slot = `p${i+1}`;
+    const text = ((r.prizes||{})[slot]||'').trim();
+    return `${ordinals[i]} UMA DAS OPÇÕES 👇🏻\n${text}`;
+  }).join('\n\n');
+}
+
+function generateMessage(){
+  const r=active();
+  if(current==="rifaDaRifa"){
+    const header = applyVars(r.header);
+    return header + "\n\n" + r.numbers.map(n=>`${String(n.number).padStart(2,"0")}- ${n.buyer || ""}${n.paid && n.buyer ? " ✅" : ""}`).join("\n");
+  }
+  const premiosText = buildPremiosText(r);
+  if(current==="complementar"){
+    const header = (r.header||"").trim()
+      .replaceAll("{{numeroRifa}}", r.numeroRifa||"")
+      .replaceAll("{{premiosRifa}}", premiosText)
+      .replaceAll("{{valorUmaCota}}", money(r.valuesComplementar?.oneQuota||0))
+      .replaceAll("{{ValorDuasCotas}}", money(r.valuesComplementar?.twoQuota||0))
+      .replaceAll("{{valorPorNumero}}", money(r.valuesComplementar?.perNumber||0));
+    return header + "\n\n" + r.numbers.map(n=>`${n.emoji}${formatRaffleNumber(n.number,'complementar')} ${n.buyer||""}${n.paid && n.buyer ? " ✅" : ""}`).join("\n");
+  }
+  const header = (r.header||"").trim()
+    .replaceAll("{{numeroRifa}}", r.numeroRifa||"")
+    .replaceAll("{{premiosRifa}}", premiosText)
+    .replaceAll("{{ValorUmaCota}}", money(r.values?.oneQuota||0))
+    .replaceAll("{{valorUmaCota}}", money(r.values?.oneQuota||0))
+    .replaceAll("{{ValorDuasCotas}}", money(r.values?.twoQuotaPromo||0))
+    .replaceAll("{{valorDuasCotas}}", money(r.values?.twoQuotaPromo||0));
+  return header + "\n\n" + r.numbers.map(n=>`${n.emoji}${n.number}- ${n.buyer || ""}${n.paid && n.buyer ? " ✅" : ""}`).join("\n");
+}
+function buildPremiosRifaDaRifa(r){
+  const numPlaces = Number(r.quantidadeNumeros)===5 ? 2 : 4;
+  const ordinals = ['1','2','3','4'];
+  return Array.from({length:numPlaces}, (_,i)=>
+    `*${ordinals[i]} LUGAR* UMA DAS OPÇÕES 👇🏻\n✅ 1 número na premium`
+  ).join('\n\n');
+}
+
+function applyVars(text){
+  const r=active();
+  const sorteados = r.quantidadeNumeros===5 ? 2 : 4;
+  return text
+    .replaceAll("{{numeroRifaPrincipal}}", r.numeroRifaPrincipal || "")
+    .replaceAll("{{NumeroDaRifaOriginal}}", r.numeroRifaReferencia || "")
+    .replaceAll("{{valorCotaOriginal}}", money(Number(r.valorCotaOriginal||0)))
+    .replaceAll("{{quantidadeNumeros}}", r.quantidadeNumeros)
+    .replaceAll("{{quantidadeNumerosSorteados}}", sorteados)
+    .replaceAll("{{valorCalculado}}", money(calcRifaDaRifaValue()))
+    .replaceAll("{{valorPorNumero}}", money(calcRifaDaRifaValue()))
+    .replaceAll("{{premiosRifaDaRifa}}", buildPremiosRifaDaRifa(r));
+}
+function calcRifaDaRifaValue(){ const r=active(); const qty = r.quantidadeNumeros===5 ? 2 : 4; return Number(r.valorCotaOriginal||0) * qty / r.quantidadeNumeros; }
+async function copyMessage(){
+  const msg=generateMessage();
+  await navigator.clipboard.writeText(msg);
+  active().finalMessage=msg;
+  logAction("Copiar","Mensagem copiada para WhatsApp",msg);
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  toast("Mensagem copiada ✅");
+}
+
+function showValues(){
+  const r=active();
+  if(current==="rifaDaRifa"){ const unit = calcRifaDaRifaValue(); openModal("Valores da Rifa da Rifa", renderValuesTable(unit)); return; }
+  if(current==="complementar"){
+    const vc = r.valuesComplementar || {perNumber:65, oneQuota:240, twoQuota:437};
+    openModal("Valores - Rifa100", `
+      <div class="two">
+        <div><label>Valor por número</label><input id="valC_perNumber" type="number" step="0.01" value="${vc.perNumber}"></div>
+        <div><label>Valor de 1 cota (4 números)</label><input id="valC_oneQuota" type="number" step="0.01" value="${vc.oneQuota}"></div>
+      </div>
+      <div style="margin-top:8px"><label>Valor de 2 cotas (8 números)</label><input id="valC_twoQuota" type="number" step="0.01" value="${vc.twoQuota}"></div>
+      <div class="actions"><button class="green" onclick="saveValueConfig()">Salvar valores</button><button class="primary" onclick="copyValues()">Copiar resumo</button></div>
+      <div id="valuesArea" style="margin-top:14px">${renderValuesTable()}</div>
+    `);
+    return;
+  }
+  openModal("Valores", `
+    <div class="two">
+      <div><label>Valor de 1 cota</label><input id="val_oneQuota" type="number" step="0.01" value="${r.values?.oneQuota||178}"></div>
+      <div><label>Valor de 2 cotas (promo)</label><input id="val_twoQuotaPromo" type="number" step="0.01" value="${r.values?.twoQuotaPromo||320}"></div>
+    </div>
+    <div class="actions"><button class="green" onclick="saveValueConfig()">Salvar valores</button><button class="primary" onclick="copyValues()">Copiar resumo</button></div>
+    <div id="valuesArea" style="margin-top:14px">${renderValuesTable()}</div>
+  `);
+}
+function saveValueConfig(){
+  const r = active();
+  if(current === 'complementar'){
+    r.valuesComplementar = r.valuesComplementar || {};
+    r.valuesComplementar.perNumber = Number(document.getElementById("valC_perNumber").value||0);
+    r.valuesComplementar.oneQuota = Number(document.getElementById("valC_oneQuota").value||0);
+    r.valuesComplementar.twoQuota = Number(document.getElementById("valC_twoQuota").value||0);
+  } else {
+    r.values = r.values || {};
+    r.values.oneQuota = Number(document.getElementById("val_oneQuota").value||0);
+    r.values.twoQuotaPromo = Number(document.getElementById("val_twoQuotaPromo").value||0);
+  }
+  markDirty(); logAction("Valores","Configuração de valores atualizada");
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  document.getElementById("valuesArea").innerHTML=renderValuesTable();
+  document.getElementById("preview").textContent=generateMessage();
+  toast("Valores salvos ✅");
+}
+
+function calcComplementarTotal(oneQuota, twoQuota, perNumber, qty, discountFlag){
+  if(qty <= 0) return 0;
+  if(qty < 4) return qty * perNumber;
+  const fullCotas = Math.floor(qty/4);
+  const extras = qty % 4;
+  let fullPrice = 0;
+  if(fullCotas === 1) fullPrice = oneQuota;
+  else if(fullCotas === 2) fullPrice = twoQuota;
+  else if(fullCotas > 2){ const pairs = Math.floor(fullCotas/2); const rem = fullCotas % 2; fullPrice = pairs * twoQuota + rem * oneQuota; }
+  let perExtra = perNumber;
+  if(discountFlag){ if(fullCotas === 1) perExtra = oneQuota / 4; else if(fullCotas >= 2) perExtra = twoQuota / 8; }
+  return fullPrice + extras * perExtra;
+}
+function getBuyerSummary(unitOverride=null){
+  const r=active(); const map={};
+  r.numbers.filter(n=>n.buyer.trim()).forEach(n=>{ const key=n.buyer.trim(); if(!map[key]) map[key]={buyer:key,numbers:[],paid:0,pending:0}; map[key].numbers.push(r.type==='complementar'?formatRaffleNumber(n.number,'complementar'):n.number); n.paid ? map[key].paid++ : map[key].pending++; });
+  return Object.values(map).map(b=>{
+    const qty=b.numbers.length;
+    if(r.type === 'complementar'){
+      const vals = r.valuesComplementar || {perNumber:0, oneQuota:0, twoQuota:0};
+      const total = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, qty, !!r.discountComplementar);
+      const paidValue = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, b.paid, !!r.discountComplementar);
+      const pendingValue = total - paidValue;
+      return {...b, qty, total, paidValue, pendingValue, status: b.paid===qty?"Pago":b.paid>0?"Parcial":"Pendente"};
+    }
+    let unit = unitOverride;
+    if(unit===null){
+      const twoPromo = Number(r.values?.twoQuotaPromo||0);
+      unit = (twoPromo > 0 && qty > 1) ? twoPromo/2 : Number(r.values?.oneQuota||0);
+    }
+    const total=qty*unit, paid=b.paid*unit, pending=b.pending*unit;
+    return {...b,qty,total,paidValue:paid,pendingValue:pending,status:b.paid===qty?"Pago":b.paid>0?"Parcial":"Pendente"};
+  });
+}
+function renderValuesTable(unitOverride=null){
+  const rows=getBuyerSummary(unitOverride);
+  if(!rows.length) return `<p class="small">Nenhum comprador preenchido ainda.</p>`;
+  return `<table><thead><tr><th>Comprador</th><th>Cotas</th><th>Números</th><th>Total</th><th>Pagas</th><th>Pendentes</th><th>Valor pago</th><th>Pendente</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>${escapeHtml(r.buyer)}</td><td>${r.qty}</td><td>${r.numbers.join(", ")}</td><td>R$ ${money(r.total)}</td><td>${r.paid}</td><td>${r.pending}</td><td>R$ ${money(r.paidValue)}</td><td>R$ ${money(r.pendingValue)}</td><td><span class="pill ${r.status==='Pago'?'orange':''}">${r.status}</span></td></tr>`).join("")}
+  </tbody></table>`;
+}
+async function copyValues(){
+  const rows=getBuyerSummary(current==="rifaDaRifa"?calcRifaDaRifaValue():null);
+  const msg="💰 RESUMO DE VALORES\n\n"+rows.map(r=>`${r.buyer}\nCotas: ${r.qty}\nNúmeros: ${r.numbers.join(", ")}\nTotal: R$ ${money(r.total)}\nPago: R$ ${money(r.paidValue)}\nPendente: R$ ${money(r.pendingValue)}\nStatus: ${r.status}`).join("\n\n");
+  await navigator.clipboard.writeText(msg);
+  logAction("Copiar valores","Resumo de valores copiado",msg);
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  toast("Resumo copiado ✅");
+}
+
+function showWinners(){
+  const r = active();
+  const isCompl = current === 'complementar';
+  const maxVal = isCompl ? 100 : r.numbers.length;
+  const wn = r.winnerNumbers || {w1:"",w2:"",w3:""};
+  const numWinners = r.numWinners || 3;
+  const fields = [];
+  for(let i=1; i<=numWinners; i++){
+    if(isCompl){
+      // Use text input to allow "00" entry
+      fields.push(`<div><label>${i}º sorteado <span style="font-weight:400;font-size:10px;color:var(--txt-dim)">(use 00 para o nº 100)</span></label><input id="w${i}" type="text" inputmode="numeric" maxlength="3" placeholder="01-99 ou 00" value="${wn['w'+i]||''}"></div>`);
+    } else {
+      fields.push(`<div><label>${i}º sorteado</label><input id="w${i}" type="number" min="1" max="${maxVal}" value="${wn['w'+i]||''}"></div>`);
+    }
+  }
+  openModal("Ganhadores", `
+    <p class="small" style="margin-bottom:14px">Informe os números sorteados. Se o 1º não tiver comprador, o sistema gera a mensagem correta automaticamente.</p>
+    <div class="two">
+      ${fields.join('')}
+    </div>
+    <div class="actions"><button class="green" onclick="calculateWinners()">🏆 Gerar resultado</button><button class="yellow" onclick="copyFormTemplate()">COPIAR FORMULÁRIO</button></div>
+    <div id="winnerResult" class="message-box" style="margin-top:14px;display:none"></div>
+  `, {config:true, copy:true, form:true});
+  // show previous result if exists
+  if(r.lastWinnerMessage){
+    setTimeout(()=>{ const el=document.getElementById("winnerResult"); if(el){ el.textContent=r.lastWinnerMessage; el.style.display="block"; } },50);
+  }
+}
+function calculateWinners(){
+  const r = active();
+  const isCompl = current === 'complementar';
+  const numWinners = r.numWinners || 3;
+  const winnerVals = {};
+  const inputNums = [];
+  for(let i=1; i<=numWinners; i++){
+    const val = document.getElementById("w"+i)?.value || "";
+    winnerVals["w"+i] = val;
+    if(val.trim()){
+      let parsed;
+      if(isCompl){
+        // "00" or "0" maps to 100 in complementar
+        parsed = (val.trim() === "00" || val.trim() === "0") ? 100 : parseInt(val.trim(), 10);
+      } else {
+        parsed = Number(val);
+      }
+      if(!isNaN(parsed) && parsed > 0) inputNums.push(parsed);
+    }
+  }
+  // save the entered numbers
+  r.winnerNumbers = winnerVals;
+  const vacant = r.numbers.some(n=>!n.buyer.trim());
+  const vagosCount = r.numbers.filter(n=>!n.buyer.trim()).length;
+
+  // Helper: format a winner number for display
+  const fmtNum = (num) => isCompl ? formatRaffleNumber(num,'complementar') : String(num).padStart(2,"0");
+
+  // Resolve winners: for each drawn number find first that has a buyer
+  const firstNum = inputNums[0];
+  const raffleHeader = current==="rifaDaRifa"
+    ? `Rifa de referência: ${r.numeroRifaReferencia||'—'}${r.numeroRifaPrincipal?` / Rifa principal: ${r.numeroRifaPrincipal}`:''}\n\n`
+    : `Nº da rifa: ${r.numeroRifa||'—'}\n\n`;
+  let msg = "";
+
+  // Scenario 1: 1st drawn number has no buyer → no winner, goes to next draw
+  if(firstNum){
+    const firstEntry = r.numbers.find(n=>n.number===firstNum);
+    if(firstEntry && !firstEntry.buyer.trim()){
+      const body = formatResultTemplate(r.resultTemplates.vacant, {
+        numero: fmtNum(firstNum),
+        numeroRifa: r.numeroRifa || "",
+        numeroRifaReferencia: r.numeroRifaReferencia || "",
+        numeroRifaPrincipal: r.numeroRifaPrincipal || "",
+        buyer: "",
+        paid: "",
+        vagos: String(vagosCount),
+        winners: ""
+      });
+      msg = raffleHeader + body;
+      active().winners=[]; active().lastWinnerMessage=msg; markDirty();
+      logAction("Ganhadores","Nenhum comprador no número sorteado: "+firstNum, msg);
+      localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+      const el=document.getElementById("winnerResult"); el.textContent=msg; el.style.display="block";
+      navigator.clipboard.writeText(msg); toast("Resultado copiado ✅");
+      return;
+    }
+  }
+
+  // Collect all winners (only from numbers that have buyers)
+  const winners=[];
+  inputNums.forEach((num,idx)=>{
+    const found=r.numbers.find(n=>n.number===num);
+    if(found && found.buyer.trim()) winners.push({order:idx+1,num, buyer:found.buyer, paid:found.paid, animal:found.animal||"", emoji:found.emoji||""});
+  });
+
+  if(!winners.length){
+    const body = `Nenhum dos números sorteados possui comprador.\nA rifa vai para o próximo sorteio.`;
+    msg = raffleHeader + body;
+  } else {
+    if(vacant){
+      const firstWinner = winners[0];
+      const paidLabel = firstWinner.paid ? " ✅" : "";
+      const winnerLine = `🎯 Número sorteado: ${fmtNum(firstWinner.num)}${current==="rifaDaRifa" ? "" : (firstWinner.animal ? ` - ${firstWinner.animal}` : "")}\n🏆 Ganhador: ${firstWinner.buyer}${paidLabel}`;
+      const body = formatResultTemplate(r.resultTemplates.partial, {
+        numero: fmtNum(firstWinner.num),
+        numeroRifa: r.numeroRifa || "",
+        numeroRifaReferencia: r.numeroRifaReferencia || "",
+        numeroRifaPrincipal: r.numeroRifaPrincipal || "",
+        buyer: firstWinner.buyer,
+        paid: paidLabel,
+        vagos: String(vagosCount),
+        winners: winnerLine
+      });
+      msg = raffleHeader + body;
+    } else {
+      const winnersText = winners.map(w=>{
+        const animalText = current==="rifaDaRifa" ? "" : (w.animal ? ` - ${w.animal}` : "");
+        return `${w.order}º número sorteado: ${fmtNum(w.num)}${animalText}\nGanhador: ${w.buyer}${w.paid?" ✅":""}`;
+      }).join("\n\n");
+      const body = formatResultTemplate(r.resultTemplates.normal, {
+        numero: fmtNum(winners[0].num),
+        numeroRifa: r.numeroRifa || "",
+        numeroRifaReferencia: r.numeroRifaReferencia || "",
+        numeroRifaPrincipal: r.numeroRifaPrincipal || "",
+        buyer: winners[0].buyer,
+        paid: winners[0].paid ? " ✅" : "",
+        vagos: String(vagosCount),
+        winners: winnersText
+      });
+      msg = raffleHeader + body;
+    }
+  }
+
+  active().winners=winners; active().lastWinnerMessage=msg; markDirty();
+  logAction("Ganhadores","Resultado de ganhadores gerado",msg);
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  const el=document.getElementById("winnerResult");
+  el.textContent=msg; el.style.display="block";
+  // Add per-winner form buttons
+  if(winners.length){
+    const btnArea = document.createElement('div');
+    btnArea.className = 'actions';
+    btnArea.style.marginTop = '12px';
+    btnArea.innerHTML = `<span style="font-size:12px;color:var(--txt-muted)">Formulários:</span>` +
+      winners.map(w=>`<button class="green" onclick="copyWinnerFormFor('${encodeURIComponent(w.buyer)}')">📋 ${escapeHtml(w.order+'º')} - ${escapeHtml(w.buyer)}</button>`).join('');
+    el.parentElement.appendChild(btnArea);
+  }
+  navigator.clipboard.writeText(msg); toast("Resultado copiado ✅");
+}
+
+function showHistory(){
+  const h=active().history;
+  openModal("Histórico da rifa atual", h.length ? `<table><thead><tr><th>Data</th><th>Hora</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>${h.map(x=>`<tr><td>${x.date}</td><td>${x.time}</td><td>${escapeHtml(x.type)}</td><td>${escapeHtml(x.detail||"")}</td></tr>`).join("")}</tbody></table>` : `<p class="small">Sem histórico ainda.</p>`);
+}
+function showSavedRaffles(){
+  const body = `
+    <div class="two">
+      <div><label>Filtrar por dia</label><input id="filterSavedDate" type="date" oninput="renderSavedRafflesList()"></div>
+      <div><label>Filtrar por número/texto</label><input id="filterSavedText" placeholder="Ex: 292, VIP, Premium..." oninput="renderSavedRafflesList()"></div>
+    </div>
+    <div id="savedRafflesList" style="margin-top:14px"></div>`;
+  openModal("Histórico de Rifas Salvas", body);
+  renderSavedRafflesList();
+}
+function renderSavedRafflesList(){
+  const area=document.getElementById('savedRafflesList'); if(!area) return;
+  const date=document.getElementById('filterSavedDate')?.value || '';
+  const text=(document.getElementById('filterSavedText')?.value || '').toLowerCase();
+  let items=(state.savedRaffles||[]).map((r,i)=>({...r,_idx:i}));
+  if(date) items=items.filter(r=>(r.savedAt||'').slice(0,10)===date);
+  if(text) items=items.filter(r=>JSON.stringify({type:r.type,header:r.header,numeroRifaPrincipal:r.numeroRifaPrincipal,finalMessage:r.finalMessage}).toLowerCase().includes(text));
+  if(!items.length){ area.innerHTML='<p class="small">Nenhuma rifa salva encontrada.</p>'; return; }
+  area.innerHTML = `<table><thead><tr><th>Data</th><th>Tipo</th><th>Nº Rifa</th><th>Resumo</th><th>Ações</th></tr></thead><tbody>${items.map(r=>`<tr><td>${new Date(r.savedAt||r.createdAt).toLocaleString('pt-BR')}</td><td><span class="pill">${labelType(r.type)}</span></td><td>${r.type==='rifaDaRifa' ? escapeHtml(r.numeroRifaReferencia||'—') : escapeHtml(r.numeroRifa||'—')}</td><td>${escapeHtml((r.header||'').split('\n')[0] || 'Sem cabeçalho')}</td><td><button onclick="showSavedRaffleDetails(${r._idx})">Ver detalhes</button></td></tr>`).join('')}</tbody></table>`;
+}
+function showSavedRaffleDetails(idx){
+  const r=(state.savedRaffles||[])[idx]; if(!r) return;
+  const winners=(r.winners||[]).length ? (r.winners||[]).map(w=>`${w.order}º - ${formatRaffleNumber(w.num, r.type)} - ${escapeHtml(w.buyer||'')}`).join('<br>') : 'Não informado';
+  const valuesHtml = renderValuesTableForRaffle(r);
+  const numLabel = r.type==='rifaDaRifa' ? `Rifa de referência: <strong>${escapeHtml(r.numeroRifaReferencia||'—')}</strong>` : `Número da rifa: <strong>${escapeHtml(r.numeroRifa||'—')}</strong>`;
+  openModal('Detalhes da rifa salva', `
+    <p style="margin-bottom:12px"><span class="pill">${labelType(r.type)}</span> &nbsp; <span class="small">Salva em ${new Date(r.savedAt||r.createdAt).toLocaleString('pt-BR')}</span> &nbsp; <span class="small">${numLabel}</span></p>
+    <div class="actions" style="margin-bottom:18px"><button class="green" onclick="reopenSavedRaffle(${idx})">🔄 Reabrir para editar</button><button onclick="closeModal()">Fechar</button></div>
+    <h3>Template / Cabeçalho</h3><div class="message-box">${escapeHtml(r.header||'')}</div>
+    <h3>Ganhadores</h3><div class="message-box">${winners}</div>
+    <h3>Valores</h3>${valuesHtml}
+    <h3>Mensagem final</h3><div class="message-box">${escapeHtml(r.finalMessage||'Sem resultado salvo')}</div>
+    <h3>Histórico</h3>${(r.history||[]).length ? `<table><thead><tr><th>Data</th><th>Hora</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>${(r.history||[]).map(x=>`<tr><td>${x.date}</td><td>${x.time}</td><td>${escapeHtml(x.type)}</td><td>${escapeHtml(x.detail||'')}</td></tr>`).join('')}</tbody></table>` : '<p class="small">Sem histórico.</p>'}
+  `);
+}
+function reopenSavedRaffle(idx){
+  const r=(state.savedRaffles||[])[idx]; if(!r) return;
+  if(active().hasUnsavedChanges && !confirm('Você tem alterações não salvas na aba atual. Deseja descartá-las e abrir esta rifa salva?')) return;
+  const savedCopy = JSON.parse(JSON.stringify(r));
+  delete savedCopy.savedAt;
+  savedCopy.lastSavedAt = r.savedAt || r.lastSavedAt || new Date().toISOString();
+  savedCopy.hasUnsavedChanges = false;
+  state[r.type] = savedCopy;
+  current = r.type;
+  document.body.className = current === 'vip2' ? 'vip' : current === 'premium' ? 'premium' : '';
+  closeModal();
+  render();
+  toast('Rifa reaberta para edição ✅');
+}
+function labelType(t){ return t==='premium'?'Premium':t==='vip2'?'VIP 2':t==='complementar'?'Rifa100':'Rifa da Rifa'; }
+function renderValuesTableForRaffle(r){
+  const rows=getBuyerSummaryFromRaffle(r);
+  if(!rows.length) return '<p class="small">Sem compradores.</p>';
+  return `<table><thead><tr><th>Comprador</th><th>Cotas</th><th>Números</th><th>Total</th><th>Pagas</th><th>Pendentes</th><th>Valor pago</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${escapeHtml(row.buyer)}</td><td>${row.qty}</td><td>${row.numbers.join(', ')}</td><td>R$ ${money(row.total)}</td><td>${row.paid}</td><td>${row.pending}</td><td>R$ ${money(row.paidValue)}</td><td>R$ ${money(row.pendingValue)}</td><td>${row.status}</td></tr>`).join('')}</tbody></table>`;
+}
+function getBuyerSummaryFromRaffle(r){
+  const map={};
+  (r.numbers||[]).filter(n=>(n.buyer||'').trim()).forEach(n=>{ const key=n.buyer.trim(); if(!map[key]) map[key]={buyer:key,numbers:[],paid:0,pending:0}; map[key].numbers.push(r.type==='complementar'?formatRaffleNumber(n.number,'complementar'):n.number); n.paid?map[key].paid++:map[key].pending++; });
+  return Object.values(map).map(b=>{
+    const qty=b.numbers.length; let unit=0;
+    if(r.type==='rifaDaRifa'){ unit = Number(r.valorCotaOriginal||0) * (Number(r.quantidadeNumeros)===5 ? 2 : 4) / Number(r.quantidadeNumeros||1); const total=qty*unit, paid=b.paid*unit, pending=b.pending*unit; return {...b,qty,total,paidValue:paid,pendingValue:pending,status:b.paid===qty?'Pago':b.paid>0?'Parcial':'Pendente'}; }
+    if(r.type==='complementar'){
+      const vals = r.valuesComplementar || {perNumber:0, oneQuota:0, twoQuota:0};
+      const total = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, qty, !!r.discountComplementar);
+      const paidValue = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, b.paid, !!r.discountComplementar);
+      const pendingValue = total - paidValue;
+      return {...b,qty,total,paidValue, pendingValue, status:b.paid===qty?'Pago':b.paid>0?'Parcial':'Pendente'};
+    }
+    const twoPromo2 = Number(r.values?.twoQuotaPromo||0);
+    unit = (twoPromo2 > 0 && qty > 1) ? twoPromo2/2 : Number(r.values?.oneQuota||0);
+    const total=qty*unit, paid=b.paid*unit, pending=b.pending*unit;
+    return {...b,qty,total,paidValue:paid,pendingValue:pending,status:b.paid===qty?'Pago':b.paid>0?'Parcial':'Pendente'};
+  });
+}
+function saveRaffle(){
+  if(!active().lastWinnerMessage){ toast('Informe os ganhadores antes de salvar ⚠️'); showWinners(); return; }
+  const msg=generateMessage();
+  active().finalMessage=msg; active().lastSavedAt=new Date().toISOString(); active().hasUnsavedChanges=false;
+  logAction("Salvar","Rifa salva no histórico local",msg);
+  const r=JSON.parse(JSON.stringify(active())); r.savedAt=active().lastSavedAt;
+  const existing = state.savedRaffles.findIndex(s => s.id === r.id);
+  if(existing >= 0) state.savedRaffles[existing] = r;
+  else state.savedRaffles.unshift(r);
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); render(); toast("Rifa salva ✅");
+}
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="rifas-backup.json"; a.click(); URL.revokeObjectURL(a.href);
+}
+function mergeSavedRaffles(currentSaved = [], importedSaved = []){
+  const map = new Map();
+  currentSaved.forEach(item => { if(item && item.id) map.set(item.id, item); });
+  importedSaved.forEach(item => {
+    if(!item || !item.id) return;
+    const existing = map.get(item.id);
+    if(!existing) {
+      map.set(item.id, item);
+      return;
+    }
+    const existingTime = existing.savedAt ? new Date(existing.savedAt).getTime() : 0;
+    const importedTime = item.savedAt ? new Date(item.savedAt).getTime() : 0;
+    if(importedTime > existingTime) map.set(item.id, item);
+  });
+  return Array.from(map.values()).sort((a,b) => {
+    const aTime = new Date(a.savedAt || a.createdAt || 0).getTime();
+    const bTime = new Date(b.savedAt || b.createdAt || 0).getTime();
+    return bTime - aTime;
+  });
+}
+function mergeRaffleState(current, imported){
+  const next = {...current};
+  next.savedRaffles = mergeSavedRaffles(current.savedRaffles || [], imported.savedRaffles || []);
+  ["premium","vip2","rifaDaRifa","complementar"].forEach(key => {
+    if(!imported[key] || typeof imported[key] !== "object") return;
+    const currentItem = current[key] || {};
+    if(currentItem.hasUnsavedChanges) return;
+    const currentTime = currentItem.lastSavedAt ? new Date(currentItem.lastSavedAt).getTime() : 0;
+    const importedTime = imported[key].lastSavedAt ? new Date(imported[key].lastSavedAt).getTime() : 0;
+    if(importedTime > currentTime) next[key] = imported[key];
+  });
+  return next;
+}
+function triggerImportJSON(){
+  const input = document.getElementById("importFileInput");
+  if(input){ input.value = ""; input.click(); }
+}
+function handleImportFile(event){
+  const file = event.target.files?.[0];
+  if(!file){ return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if(!imported || typeof imported !== "object") throw new Error("Arquivo JSON inválido");
+      const previousCount = (state.savedRaffles || []).length;
+      state = mergeRaffleState(state, imported);
+      localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+      render();
+      const newCount = (state.savedRaffles || []).length;
+      if(newCount > previousCount) {
+        toast(`Importação concluída ✅ ${newCount - previousCount} novo(s) registro(s) adicionados`);
+      } else {
+        toast("Importação concluída ✅ Nenhum registro novo encontrado");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao importar: arquivo inválido");
+    }
+  };
+  reader.onerror = () => {
+    toast("Erro ao ler o arquivo");
+  };
+  reader.readAsText(file);
+}
+function getLastSavedRaffleByType(type){
+  return (state.savedRaffles||[]).find(r=>r.type===type) || null;
+}
+function applySavedConfigToNewRaffle(base, saved){
+  if(!saved) return base;
+  if(base.type === "rifaDaRifa"){
+    base.numeroRifaReferencia = saved.numeroRifaReferencia || base.numeroRifaReferencia;
+    base.numeroRifaPrincipal = saved.numeroRifaPrincipal || base.numeroRifaPrincipal;
+    base.valorCotaOriginal = Number(saved.valorCotaOriginal || base.valorCotaOriginal);
+    base.quantidadeNumeros = Number(saved.quantidadeNumeros || base.quantidadeNumeros);
+    base.header = saved.header || base.header;
+    base.payWholeBuyer = !!saved.payWholeBuyer;
+    if(base.quantidadeNumeros !== base.numbers.length){
+      base.numbers = Array.from({length:base.quantidadeNumeros},(_,i)=>({number:i+1,buyer:"",paid:false}));
+    }
+  } else {
+    base.numeroRifa = saved.numeroRifa || base.numeroRifa;
+    base.header = saved.header || base.header;
+    base.values = saved.values ? {...saved.values} : base.values;
+    base.payWholeBuyer = !!saved.payWholeBuyer;
+    base.discountComplementar = !!saved.discountComplementar;
+    base.valuesComplementar = saved.valuesComplementar ? {...saved.valuesComplementar} : base.valuesComplementar;
+    base.prizes = saved.prizes ? {...saved.prizes} : base.prizes;
+  }
+  base.resultTemplates = saved.resultTemplates ? {...saved.resultTemplates} : base.resultTemplates;
+  return base;
+}
+function resetCurrent(){
+  const isPremium = current === 'premium';
+  const isVip2 = current === 'vip2';
+  const isCompl = current === 'complementar';
+  const isRifaDaRifa = current === 'rifaDaRifa';
+  const isFullReset = isPremium || isVip2 || isCompl || isRifaDaRifa;
+  const r = active();
+  const typeName = labelType(current);
+  const savedStatus = r.lastSavedAt && !r.hasUnsavedChanges
+    ? `<span style="color:var(--green);font-weight:600">✓ Salva em ${new Date(r.lastSavedAt).toLocaleString('pt-BR')}</span>`
+    : r.lastSavedAt && r.hasUnsavedChanges
+      ? `<span style="color:var(--yellow);font-weight:600">⚠ Alterações não salvas</span>`
+      : `<span style="color:var(--red);font-weight:600">✗ Ainda não foi salva</span>`;
+
+  const itemsFullReset = `
+    <li>Todos os compradores removidos</li>
+    <li>Número da rifa limpo</li>
+    <li>Ganhadores limpos</li>
+    <li>Cabeçalho restaurado para o padrão</li>
+    ${!isRifaDaRifa ? '<li>Valores das cotas zerados</li><li>Prêmios limpos</li>' : ''}`;
+  const itemsOther = `<li>Todos os compradores removidos</li><li>Cabeçalho, valores e prêmios mantidos</li>`;
+
+  openModal("🗑 Limpar rifa", `
+    <div class="pay-card" style="margin-bottom:14px">
+      <div class="pay-card-title">Rifa</div>
+      <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:6px">${typeName}</div>
+      <div style="font-size:13px">${savedStatus}</div>
+    </div>
+
+    <div class="pay-card" style="margin-bottom:16px">
+      <div class="pay-card-title">O que será feito</div>
+      <ul style="padding-left:18px;line-height:2;font-size:13.5px;color:var(--txt-muted)">
+        ${isFullReset ? itemsFullReset : itemsOther}
+      </ul>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:12px;cursor:pointer;background:var(--red-dim);border:1px solid rgba(255,68,102,0.2);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
+      <input type="checkbox" id="confirmResetCheck" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--red)">
+      <span style="font-size:14px;font-weight:500">Confirmo que desejo limpar esta rifa</span>
+    </label>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="red" style="flex:1;min-width:140px;padding:13px;font-size:14px" onclick="confirmReset()">🗑 Limpar agora</button>
+      <button style="padding:13px;font-size:14px" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+function confirmReset(){
+  if(!document.getElementById('confirmResetCheck')?.checked){
+    document.getElementById('confirmResetCheck').closest('label').style.outline='2px solid var(--red)';
+    toast('Marque a caixa de confirmação ⚠️');
+    return;
+  }
+  const isPremium = current === 'premium';
+  const isVip2 = current === 'vip2';
+  const isCompl = current === 'complementar';
+  const isRifaDaRifa = current === 'rifaDaRifa';
+  active().numbers.forEach(n => { n.buyer = ""; n.paid = false; n.clientId = null; });
+  if(isPremium){
+    active().values = {oneQuota:0, twoQuotaPromo:0};
+    active().numeroRifa = "";
+    active().header = defaultHeader;
+    active().prizes = {p1:"", p2:"", p3:""};
+    active().winners = [];
+    active().winnerNumbers = {w1:"",w2:"",w3:""};
+    active().lastWinnerMessage = "";
+  }
+  if(isVip2){
+    active().values = {oneQuota:0, twoQuotaPromo:0};
+    active().numeroRifa = "";
+    active().header = defaultHeaderVip2;
+    active().prizes = {p1:"", p2:"", p3:""};
+    active().winners = [];
+    active().winnerNumbers = {w1:"",w2:"",w3:""};
+    active().lastWinnerMessage = "";
+  }
+  if(isRifaDaRifa){
+    active().numeroRifaReferencia = "";
+    active().header = defaultRifaDaRifaHeader;
+    active().winners = [];
+    active().winnerNumbers = {w1:"",w2:"",w3:""};
+    active().lastWinnerMessage = "";
+  }
+  if(isCompl){
+    active().valuesComplementar = {perNumber:0, oneQuota:0, twoQuota:0};
+    active().numeroRifa = "";
+    active().header = defaultHeaderComplementar;
+    active().prizes = {p1:"", p2:"", p3:""};
+    active().winners = [];
+    active().winnerNumbers = {w1:"",w2:"",w3:""};
+    active().lastWinnerMessage = "";
+  }
+  active().hasUnsavedChanges = true;
+  logAction("Limpar", `${labelType(current)} reiniciada`);
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  closeModal();
+  render();
+  toast(`${labelType(current)} reiniciada ✅`);
+}
+function money(v){ return Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function escapeHtml(s){ return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
+function escapeAttr(s){ return escapeHtml(s).replaceAll("\n"," "); }
+// ══════════════════════════════════════════════════════
+// MÓDULO CLIENTES
+// ══════════════════════════════════════════════════════
+function openClientsModal(){
+  openModal("👥 Clientes", buildClientsHtml());
+}
+function buildClientsHtml(){
+  const clients = state.clients || [];
+  const rows = clients.map(c=>{
+    const bal = getClientBalance(c.id);
+    return `<tr>
+      <td>${escapeHtml(c.name)}${c.aliases&&c.aliases.length?`<br><span style="font-size:11px;color:var(--txt-dim)">${escapeHtml(c.aliases.join(', '))}</span>`:''}
+      </td>
+      <td><span class="client-credit-badge ${bal===0?'zero':''}">${bal>0?'R$ '+money(bal):'Sem crédito'}</span></td>
+      <td>${escapeHtml(c.city||'')} ${escapeHtml(c.state||'')}</td>
+      <td style="white-space:nowrap">
+        <button onclick="openEditClientModal('${c.id}')">✏️</button>
+        <button onclick="openClientCreditsModal('${c.id}')">💰</button>
+        <button class="red" onclick="deleteClient('${c.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="actions" style="margin-bottom:14px">
+      <button class="green" onclick="openAddClientModal()">+ Novo cliente</button>
+      <input id="clientSearch" placeholder="Buscar por nome..." style="width:220px" oninput="filterClientsTable(this.value)">
+    </div>
+    ${clients.length ? `
+    <table id="clientsTable">
+      <thead><tr><th>Nome / Aliases</th><th>Crédito</th><th>Cidade</th><th>Ações</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : '<p class="small">Nenhum cliente cadastrado ainda. Clique em "+ Novo cliente" para começar.</p>'}
+  `;
+}
+function filterClientsTable(q){
+  const ql=q.toLowerCase();
+  document.querySelectorAll('#clientsTable tbody tr').forEach(tr=>{
+    tr.style.display=tr.textContent.toLowerCase().includes(ql)?'':'none';
+  });
+}
+function openAddClientModal(){
+  openModal("Novo cliente", clientFormHtml(null));
+}
+function openEditClientModal(id){
+  const c=(state.clients||[]).find(x=>x.id===id);
+  if(!c) return;
+  openModal("Editar cliente", clientFormHtml(c));
+}
+function clientFormHtml(c){
+  const v=(f,d='')=>escapeAttr(c?c[f]||d:d);
+  const va=(f)=>escapeHtml(c&&c[f]?(Array.isArray(c[f])?c[f].join(', '):c[f]):'');
+  return `
+    <div class="two">
+      <div><label>Nome canônico *</label><input id="cf_name" value="${v('name')}" placeholder="Nome completo"></div>
+      <div><label>Aliases (separados por vírgula)</label><input id="cf_aliases" value="${va('aliases')}" placeholder="Zé, José F., zeferreira"></div>
+    </div>
+    <div class="two">
+      <div><label>CPF</label><input id="cf_cpf" value="${v('cpf')}"></div>
+      <div><label>Telefone</label><input id="cf_phone" value="${v('phone')}"></div>
+    </div>
+    <div><label>E-mail</label><input id="cf_email" value="${v('email')}"></div>
+    <div><label>Lado da manivela</label><input id="cf_manivela" value="${v('manivela')}" placeholder="Direita / Esquerda"></div>
+    <h3>Endereço</h3>
+    <div class="two">
+      <div><label>CEP</label><input id="cf_cep" value="${v('cep')}"></div>
+      <div><label>Estado</label><input id="cf_state" value="${v('state')}"></div>
+    </div>
+    <div class="two">
+      <div><label>Cidade</label><input id="cf_city" value="${v('city')}"></div>
+      <div><label>Bairro</label><input id="cf_neighborhood" value="${v('neighborhood')}"></div>
+    </div>
+    <div><label>Endereço (rua e número)</label><input id="cf_street" value="${v('street')}"></div>
+    <div class="actions" style="margin-top:18px">
+      <button class="green" onclick="saveClientForm('${c?c.id:''}')">💾 Salvar cliente</button>
+      <button onclick="openClientsModal()">Cancelar</button>
+    </div>
+  `;
+}
+function saveClientForm(existingId){
+  const name = document.getElementById('cf_name')?.value.trim();
+  if(!name){ toast('Nome é obrigatório ⚠️'); return; }
+  const aliasRaw = document.getElementById('cf_aliases')?.value||'';
+  const aliases = aliasRaw.split(',').map(a=>a.trim()).filter(Boolean);
+  const c = {
+    id: existingId || crypto.randomUUID(),
+    name,
+    aliases,
+    cpf: document.getElementById('cf_cpf')?.value.trim()||'',
+    phone: document.getElementById('cf_phone')?.value.trim()||'',
+    email: document.getElementById('cf_email')?.value.trim()||'',
+    manivela: document.getElementById('cf_manivela')?.value.trim()||'',
+    cep: document.getElementById('cf_cep')?.value.trim()||'',
+    state: document.getElementById('cf_state')?.value.trim()||'',
+    city: document.getElementById('cf_city')?.value.trim()||'',
+    neighborhood: document.getElementById('cf_neighborhood')?.value.trim()||'',
+    street: document.getElementById('cf_street')?.value.trim()||'',
+    updatedAt: new Date().toISOString()
+  };
+  if(!existingId) c.createdAt = c.updatedAt;
+  const idx = (state.clients||[]).findIndex(x=>x.id===c.id);
+  if(idx>=0) state.clients[idx]=c; else { state.clients=state.clients||[]; state.clients.push(c); }
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  toast('Cliente salvo ✅');
+  openModal("👥 Clientes", buildClientsHtml());
+}
+function deleteClient(id){
+  if(!confirm('Excluir este cliente? O histórico de créditos também será removido.')) return;
+  state.clients=(state.clients||[]).filter(c=>c.id!==id);
+  delete (state.credits||{})[id];
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+  toast('Cliente removido');
+  openModal("👥 Clientes", buildClientsHtml());
+}
+
+// ══════════════════════════════════════════════════════
+// MÓDULO CRÉDITOS
+// ══════════════════════════════════════════════════════
+function getClientBalance(clientId){
+  const cr = (state.credits||{})[clientId];
+  return cr ? Number(cr.balance||0) : 0;
+}
+function applyCredit(clientId, amount, description){
+  // amount positive = entrada, negative = saída
+  if(!state.credits) state.credits={};
+  if(!state.credits[clientId]) state.credits[clientId]={balance:0,history:[]};
+  const cr = state.credits[clientId];
+  cr.balance = Math.max(0, Number(cr.balance||0) + amount);
+  cr.history.unshift({
+    type: amount>0?'entrada':'saída',
+    amount: Math.abs(amount),
+    description,
+    date: new Date().toLocaleDateString('pt-BR'),
+    time: new Date().toLocaleTimeString('pt-BR'),
+    balance: cr.balance
+  });
+  localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
+}
+function openClientCreditsModal(clientId){
+  const c=(state.clients||[]).find(x=>x.id===clientId);
+  if(!c) return;
+  const cr=state.credits?.[clientId]||{balance:0,history:[]};
+  const bal=Number(cr.balance||0);
+  const histRows=(cr.history||[]).map(h=>`<tr>
+    <td>${h.date} ${h.time}</td>
+    <td class="${h.type==='entrada'?'credit-in':'credit-out'}">${h.type==='entrada'?'+':'-'} R$ ${money(h.amount)}</td>
+    <td>R$ ${money(h.balance)}</td>
+    <td>${escapeHtml(h.description||'')}</td>
+  </tr>`).join('');
+  openModal(`💰 Créditos — ${escapeHtml(c.name)}`, `
+    <div class="credit-summary">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--txt-muted);margin-bottom:4px">Saldo atual</div>
+      <div class="credit-summary-balance ${bal===0?'zero':''}">R$ ${money(bal)}</div>
+    </div>
+    <div class="two" style="margin-bottom:14px">
+      <div>
+        <label>Adicionar crédito (R$)</label>
+        <input id="creditAddAmt" type="number" step="0.01" min="0" placeholder="0,00">
+        <input id="creditAddDesc" placeholder="Motivo (ex: Prêmio virou crédito - Rifa 292)" style="margin-top:6px">
+        <button class="green" style="margin-top:8px;width:100%" onclick="doAddCredit('${clientId}')">➕ Adicionar</button>
+      </div>
+      <div>
+        <label>Remover crédito (R$)</label>
+        <input id="creditSubAmt" type="number" step="0.01" min="0" placeholder="0,00">
+        <input id="creditSubDesc" placeholder="Motivo (ex: Abatido na Rifa 293)" style="margin-top:6px">
+        <button class="red" style="margin-top:8px;width:100%" onclick="doSubCredit('${clientId}')">➖ Remover</button>
+      </div>
+    </div>
+    ${cr.history?.length ? `<h3>Histórico</h3><table><thead><tr><th>Data/Hora</th><th>Valor</th><th>Saldo</th><th>Descrição</th></tr></thead><tbody>${histRows}</tbody></table>` : '<p class="small">Sem movimentações ainda.</p>'}
+  `);
+}
+function doAddCredit(clientId){
+  const amt=parseFloat(document.getElementById('creditAddAmt')?.value||0);
+  const desc=document.getElementById('creditAddDesc')?.value.trim()||'Crédito adicionado manualmente';
+  if(!amt||amt<=0){ toast('Informe um valor válido'); return; }
+  applyCredit(clientId, amt, desc);
+  openClientCreditsModal(clientId);
+  toast(`Crédito de R$ ${money(amt)} adicionado ✅`);
+}
+function doSubCredit(clientId){
+  const amt=parseFloat(document.getElementById('creditSubAmt')?.value||0);
+  const desc=document.getElementById('creditSubDesc')?.value.trim()||'Crédito removido manualmente';
+  if(!amt||amt<=0){ toast('Informe um valor válido'); return; }
+  const bal=getClientBalance(clientId);
+  if(amt>bal){ toast(`Saldo insuficiente (R$ ${money(bal)})`); return; }
+  applyCredit(clientId, -amt, desc);
+  openClientCreditsModal(clientId);
+  toast(`R$ ${money(amt)} removido do crédito ✅`);
+}
+function showCreditPayModal(clientId, buyer, due, onConfirm){
+  const bal=getClientBalance(clientId);
+  openModal(`Pagamento — ${escapeHtml(buyer)}`, `
+    <div class="pay-card">
+      <div class="pay-card-title">Comprador</div>
+      <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700">${escapeHtml(buyer)}</div>
+    </div>
+
+    <div class="pay-card">
+      <div class="pay-card-title">Valores</div>
+      <div class="pay-row">
+        <span class="pay-row-label">Pendente</span>
+        <span class="pay-row-value yellow big">R$ ${money(due)}</span>
+      </div>
+    </div>
+
+    <div class="pay-credit-box">
+      <div class="pay-credit-header">💰 Crédito disponível: R$ ${money(bal)}</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+        <input type="checkbox" id="useCreditSingle" style="width:18px;height:18px;flex-shrink:0" onchange="updateCreditCalc(${due},${bal})">
+        <span>Usar créditos neste pagamento</span>
+      </label>
+      <div id="creditCalcArea" class="pay-credit-calc" style="display:none"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+      <button class="green" style="flex:1;min-width:160px;padding:13px;font-size:14px" onclick="confirmCreditPay('${clientId}','${encodeURIComponent(buyer)}',${due},${bal})">✅ Confirmar pagamento</button>
+      <button style="padding:13px;font-size:14px" onclick="closeModal(); render()">Cancelar</button>
+    </div>
+  `);
+}
+function confirmCreditPay(clientId, encodedBuyer, due, bal){
+  const buyer=decodeURIComponent(encodedBuyer);
+  const useCredit=document.getElementById('useCreditSingle')?.checked;
+  if(useCredit){
+    const used=Math.min(bal,due);
+    applyCredit(clientId, -used, `Abatido na rifa ${active().numeroRifa||'atual'} - ${buyer}`);
+  }
+  const key=buyer.trim().toLowerCase();
+  const idx=active().numbers.findIndex(n=>(n.buyer||'').trim().toLowerCase()===key);
+  if(idx>=0) updatePaid(idx,true);
+  closeModal();
+}
+
+// ══════════════════════════════════════════════════════
+// FORMULÁRIO INTELIGENTE POR GANHADOR
+// ══════════════════════════════════════════════════════
+function copyWinnerFormFor(encodedBuyer){
+  const buyer=decodeURIComponent(encodedBuyer);
+  const r=active();
+  const today=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  const raffleNumber=current==='rifaDaRifa'?(r.numeroRifaReferencia||r.numeroRifa||''):(r.numeroRifa||'');
+  const raffleType=current==='vip2'?'VIP 2':current==='premium'?'Premium':current==='complementar'?'Rifa100':'Rifa da Rifa';
+  // Find client
+  const numEntry=r.numbers.find(n=>(n.buyer||'').trim().toLowerCase()===buyer.trim().toLowerCase());
+  const clientId=numEntry?.clientId||null;
+  const c=clientId?(state.clients||[]).find(x=>x.id===clientId):null;
+  let msg;
+  if(c){
+    msg=`PREENCHA O PRÊMIO DESEJADO.\nRESPONSÁVEL: 👉🏻 Jailson\nDATA: ${today}\nN. RIFA: ${raffleNumber} ${raffleType}\n\nPRODUTO:\nLADO DA MANIVELA: ${c.manivela||''}\n\nNOME: ${c.name}\nCPF: ${c.cpf||''}\nENDEREÇO: ${c.street||''}\nCIDADE: ${c.city||''}\nBAIRRO: ${c.neighborhood||''}\nESTADO: ${c.state||''}\nCEP: ${c.cep||''}\nE-MAIL: ${c.email||''}\nTELEFONE: ${c.phone||''}`;
+  } else {
+    msg=`PREENCHA SEUS DADOS E O PRÊMIO.\nRESPONSÁVEL: 👉🏻 Jailson\nDATA: ${today}\nN. RIFA: ${raffleNumber} ${raffleType}\n\nPRODUTO:\nLADO DA MANIVELA:\n\nNOME: ${buyer}\nCPF: \nENDEREÇO:\nCIDADE: \nBAIRRO: \nESTADO: \nCEP:\nE-MAIL: \nTELEFONE: `;
+  }
+  navigator.clipboard.writeText(msg);
+  toast(`Formulário de ${buyer} copiado ${c?'(com dados) ✅':'(sem cadastro) ✅'}`);
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+window.addEventListener('scroll', () => {
+  const bar = document.getElementById('topBar');
+  if(bar) bar.classList.toggle('top--shrunk', window.scrollY > 55);
+}, {passive: true});
+render();
+</script>
+<button class="floating-copy-btn" onclick="copyMessage()" title="Copiar mensagem">📋</button>
+</body>
+</html>
