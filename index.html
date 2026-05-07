@@ -1576,7 +1576,10 @@ function generateMessage(){
       .replaceAll("{{valorUmaCota}}", money(r.valuesComplementar?.oneQuota||0))
       .replaceAll("{{ValorDuasCotas}}", money(r.valuesComplementar?.twoQuota||0))
       .replaceAll("{{valorPorNumero}}", money(r.valuesComplementar?.perNumber||0));
-    return header + "\n\n" + r.numbers.map(n=>`${n.emoji}${formatRaffleNumber(n.number,'complementar')} ${n.buyer||""}${n.paid && n.buyer ? " ✅" : ""}`).join("\n");
+    return header + "\n\n" + r.numbers.map((n,i)=>{
+      const line = `${n.emoji}${formatRaffleNumber(n.number,'complementar')} ${n.buyer||""}${n.paid && n.buyer ? " ✅" : ""}`;
+      return (i > 0 && i % 4 === 0) ? "\n" + line : line;
+    }).join("\n");
   }
   const header = (r.header||"").trim()
     .replaceAll("{{numeroRifa}}", r.numeroRifa||"")
