@@ -695,6 +695,7 @@
         <button id="tab-premium" onclick="setTab('premium')">Premium</button>
         <button id="tab-rifaDaRifa" onclick="setTab('rifaDaRifa')">Rifa da Rifa</button>
         <button id="tab-vip2" onclick="setTab('vip2')">VIP 2</button>
+        <button id="tab-complementar" onclick="setTab('complementar')">Complementar</button>
         <button onclick="showSavedRaffles()">📁 Histórico</button>
         <button class="yellow" onclick="triggerImportJSON()">↑ Importar</button>
         <button class="yellow" onclick="exportJSON()">↓ Export</button>
@@ -789,6 +790,8 @@ const emptyMainRaffle = (type) => ({
   header: defaultHeader,
   numbers: Array.from({length:25},(_,i)=>({number:i+1,animal:animals[i][1],emoji:animals[i][0],buyer:"",paid:false})),
   values:{oneQuota:178,twoQuotaPromo:320},
+  discountComplementar: false,
+  valuesComplementar:{perNumber:65, oneQuota:240, twoQuota:437},
   winners:[],
   winnerNumbers:{w1:"",w2:"",w3:""},
   history:[],
@@ -829,11 +832,11 @@ function loadState(){
   const saved = localStorage.getItem("rifas_whatsapp_app_v1");
   if(saved){
     const s = JSON.parse(saved);
-    ["premium","vip2"].forEach(k=>{ if(s[k]){ s[k].numeroRifa=s[k].numeroRifa||""; s[k].winnerNumbers=s[k].winnerNumbers||{w1:"",w2:"",w3:""}; s[k].resultTemplates = s[k].resultTemplates || getDefaultResultTemplates(); }});
+    ["premium","vip2","complementar"].forEach(k=>{ if(s[k]){ s[k].numeroRifa=s[k].numeroRifa||""; s[k].winnerNumbers=s[k].winnerNumbers||{w1:"",w2:"",w3:""}; s[k].resultTemplates = s[k].resultTemplates || getDefaultResultTemplates(); }});
     if(s.rifaDaRifa){ s.rifaDaRifa.numeroRifaReferencia=s.rifaDaRifa.numeroRifaReferencia||""; s.rifaDaRifa.winnerNumbers=s.rifaDaRifa.winnerNumbers||{w1:"",w2:"",w3:""}; s.rifaDaRifa.resultTemplates = s.rifaDaRifa.resultTemplates || getDefaultResultTemplates(); }
     return s;
   }
-  return {premium:emptyMainRaffle("premium"), vip2:emptyMainRaffle("vip2"), rifaDaRifa:emptyRifaDaRifa(), savedRaffles:[]};
+  return {premium:emptyMainRaffle("premium"), vip2:emptyMainRaffle("vip2"), complementar:emptyMainRaffle("complementar"), rifaDaRifa:emptyRifaDaRifa(), savedRaffles:[]};
 }
 function persist(){ localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state)); render(); }
 function active(){ return state[current]; }
@@ -998,8 +1001,9 @@ function render(){
 function renderMainRaffle(){
   const r=active();
   const canWin = countFilled()>=20;
+  const title = current==="premium" ? "Rifa Premium" : current==="vip2" ? "Rifa VIP 2" : current==="complementar" ? "Rifa Complementar" : "Rifa";
   document.getElementById("main").innerHTML = `
-    <h2>${current==="premium"?"Rifa Premium":"Rifa VIP 2"} ${savedStatusHtml(r)}</h2>
+    <h2>${title} ${savedStatusHtml(r)}</h2>
     ${summaryCardsHtml()}
     <label>Número da rifa</label>
     <input placeholder="Ex: 292" value="${escapeAttr(r.numeroRifa||'')}" oninput="updateNumeroRifa(this.value)">
@@ -1017,6 +1021,10 @@ function renderMainRaffle(){
       <button id="btnWinnersMain" class="green" ${canWin?"":"disabled"} onclick="showWinners()">🏆 Ganhadores</button>
       <button class="yellow" onclick="showValues()">💰 Valores</button>
       <button class="green" onclick="saveRaffle()">💾 Salvar</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:8px">
+        <span style="font-size:13px;color:var(--txt-muted)">Desconto em número complementar</span>
+        <label class="switch"><input type="checkbox" ${r.discountComplementar?"checked":""} onchange="toggleDiscountComplementar(this.checked)"><span class="slider"></span></label>
+      </div>
       ${bulkPayControlHtml()}
     </div>
     <table>
@@ -1118,6 +1126,7 @@ function hideBuyerSuggestionsLater(input){
   setTimeout(()=>{ const box = input.parentElement && input.parentElement.querySelector('.buyer-suggest'); if(box) box.style.display='none'; },150);
 }
 function togglePayWholeBuyer(v){ active().payWholeBuyer = v; markDirty(); logAction("Configuração", `Pagar comprador inteiro ${v ? "ativado" : "desativado"}`); persist(); }
+function toggleDiscountComplementar(v){ active().discountComplementar = v; markDirty(); logAction("Configuração", `Desconto em número complementar ${v ? "ativado" : "desativado"}`); persist(); }
 function handlePaidToggle(i,v){
   const r = active();
   const item = r.numbers[i];
@@ -1195,27 +1204,54 @@ function showValues(){
   if(current==="rifaDaRifa"){ const unit = calcRifaDaRifaValue(); openModal("Valores da Rifa da Rifa", renderValuesTable(unit)); return; }
   openModal("Valores", `
     <div class="two">
-      <div><label>Valor de 1 cota</label><input id="oneQuota" type="number" step="0.01" value="${r.values.oneQuota||0}"></div>
-      <div><label>Valor promocional 2+ cotas</label><input id="twoQuotaPromo" type="number" step="0.01" value="${r.values.twoQuotaPromo||0}"></div>
+      <div><label>Valor por NÚMERO</label><input id="perNumber" type="number" step="0.01" value="${(r.valuesComplementar?.perNumber)||65}"></div>
+      <div><label>Valor de 1 COTA (4 números)</label><input id="oneQuota" type="number" step="0.01" value="${r.valuesComplementar?.oneQuota||r.values.oneQuota||0}"></div>
     </div>
+    <div style="margin-top:8px"><label>Valor de 2 COTAS (8 números)</label><input id="twoQuota" type="number" step="0.01" value="${r.valuesComplementar?.twoQuota||r.values.twoQuotaPromo||0}"></div>
     <div class="actions"><button class="green" onclick="saveValueConfig()">Salvar valores</button><button class="primary" onclick="copyValues()">Copiar resumo</button></div>
     <div id="valuesArea" style="margin-top:14px">${renderValuesTable()}</div>
   `);
 }
 function saveValueConfig(){
   active().values.oneQuota=Number(document.getElementById("oneQuota").value||0);
-  active().values.twoQuotaPromo=Number(document.getElementById("twoQuotaPromo").value||0);
+  active().values.twoQuotaPromo=Number(document.getElementById("twoQuota").value||0);
+  active().valuesComplementar = active().valuesComplementar || {};
+  active().valuesComplementar.perNumber = Number(document.getElementById("perNumber").value||0);
+  active().valuesComplementar.oneQuota = Number(document.getElementById("oneQuota").value||0);
+  active().valuesComplementar.twoQuota = Number(document.getElementById("twoQuota").value||0);
   markDirty(); logAction("Valores","Configuração de valores atualizada");
   localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
   document.getElementById("valuesArea").innerHTML=renderValuesTable();
   document.getElementById("preview").textContent=generateMessage();
   toast("Valores salvos ✅");
 }
+
+function calcComplementarTotal(oneQuota, twoQuota, perNumber, qty, discountFlag){
+  if(qty <= 0) return 0;
+  if(qty < 4) return qty * perNumber;
+  const fullCotas = Math.floor(qty/4);
+  const extras = qty % 4;
+  let fullPrice = 0;
+  if(fullCotas === 1) fullPrice = oneQuota;
+  else if(fullCotas === 2) fullPrice = twoQuota;
+  else if(fullCotas > 2){ const pairs = Math.floor(fullCotas/2); const rem = fullCotas % 2; fullPrice = pairs * twoQuota + rem * oneQuota; }
+  let perExtra = perNumber;
+  if(discountFlag){ perExtra = fullCotas <= 1 ? (oneQuota / 4) : (twoQuota / 8); }
+  return fullPrice + extras * perExtra;
+}
 function getBuyerSummary(unitOverride=null){
   const r=active(); const map={};
   r.numbers.filter(n=>n.buyer.trim()).forEach(n=>{ const key=n.buyer.trim(); if(!map[key]) map[key]={buyer:key,numbers:[],paid:0,pending:0}; map[key].numbers.push(n.number); n.paid ? map[key].paid++ : map[key].pending++; });
   return Object.values(map).map(b=>{
-    const qty=b.numbers.length; let unit = unitOverride;
+    const qty=b.numbers.length;
+    if(r.type === 'complementar'){
+      const vals = r.valuesComplementar || {perNumber:0, oneQuota:0, twoQuota:0};
+      const total = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, qty, !!r.discountComplementar);
+      const paidValue = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, b.paid, !!r.discountComplementar);
+      const pendingValue = total - paidValue;
+      return {...b, qty, total, paidValue, pendingValue, status: b.paid===qty?"Pago":b.paid>0?"Parcial":"Pendente"};
+    }
+    let unit = unitOverride;
     if(unit===null){ unit = qty===1 ? Number(r.values.oneQuota||0) : Number(r.values.twoQuotaPromo||0)/2; }
     const total=qty*unit, paid=b.paid*unit, pending=b.pending*unit;
     return {...b,qty,total,paidValue:paid,pendingValue:pending,status:b.paid===qty?"Pago":b.paid>0?"Parcial":"Pendente"};
@@ -1411,7 +1447,7 @@ function reopenSavedRaffle(idx){
   render();
   toast('Rifa reaberta para edição ✅');
 }
-function labelType(t){ return t==='premium'?'Premium':t==='vip2'?'VIP 2':'Rifa da Rifa'; }
+function labelType(t){ return t==='premium'?'Premium':t==='vip2'?'VIP 2':t==='complementar'?'Complementar':'Rifa da Rifa'; }
 function renderValuesTableForRaffle(r){
   const rows=getBuyerSummaryFromRaffle(r);
   if(!rows.length) return '<p class="small">Sem compradores.</p>';
@@ -1422,8 +1458,15 @@ function getBuyerSummaryFromRaffle(r){
   (r.numbers||[]).filter(n=>(n.buyer||'').trim()).forEach(n=>{ const key=n.buyer.trim(); if(!map[key]) map[key]={buyer:key,numbers:[],paid:0,pending:0}; map[key].numbers.push(n.number); n.paid?map[key].paid++:map[key].pending++; });
   return Object.values(map).map(b=>{
     const qty=b.numbers.length; let unit=0;
-    if(r.type==='rifaDaRifa'){ unit = Number(r.valorCotaOriginal||0) * (Number(r.quantidadeNumeros)===5 ? 2 : 4) / Number(r.quantidadeNumeros||1); }
-    else { unit = qty===1 ? Number(r.values?.oneQuota||0) : Number(r.values?.twoQuotaPromo||0)/2; }
+    if(r.type==='rifaDaRifa'){ unit = Number(r.valorCotaOriginal||0) * (Number(r.quantidadeNumeros)===5 ? 2 : 4) / Number(r.quantidadeNumeros||1); const total=qty*unit, paid=b.paid*unit, pending=b.pending*unit; return {...b,qty,total,paidValue:paid,pendingValue:pending,status:b.paid===qty?'Pago':b.paid>0?'Parcial':'Pendente'}; }
+    if(r.type==='complementar'){
+      const vals = r.valuesComplementar || {perNumber:0, oneQuota:0, twoQuota:0};
+      const total = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, qty, !!r.discountComplementar);
+      const paidValue = calcComplementarTotal(vals.oneQuota, vals.twoQuota, vals.perNumber, b.paid, !!r.discountComplementar);
+      const pendingValue = total - paidValue;
+      return {...b,qty,total,paidValue, pendingValue, status:b.paid===qty?'Pago':b.paid>0?'Parcial':'Pendente'};
+    }
+    unit = qty===1 ? Number(r.values?.oneQuota||0) : Number(r.values?.twoQuotaPromo||0)/2;
     const total=qty*unit, paid=b.paid*unit, pending=b.pending*unit;
     return {...b,qty,total,paidValue:paid,pendingValue:pending,status:b.paid===qty?'Pago':b.paid>0?'Parcial':'Pendente'};
   });
@@ -1526,6 +1569,8 @@ function applySavedConfigToNewRaffle(base, saved){
     base.header = saved.header || base.header;
     base.values = saved.values ? {...saved.values} : base.values;
     base.payWholeBuyer = !!saved.payWholeBuyer;
+    base.discountComplementar = !!saved.discountComplementar;
+    base.valuesComplementar = saved.valuesComplementar ? {...saved.valuesComplementar} : base.valuesComplementar;
   }
   base.resultTemplates = saved.resultTemplates ? {...saved.resultTemplates} : base.resultTemplates;
   return base;
