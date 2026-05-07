@@ -1236,7 +1236,7 @@ function calcComplementarTotal(oneQuota, twoQuota, perNumber, qty, discountFlag)
   else if(fullCotas === 2) fullPrice = twoQuota;
   else if(fullCotas > 2){ const pairs = Math.floor(fullCotas/2); const rem = fullCotas % 2; fullPrice = pairs * twoQuota + rem * oneQuota; }
   let perExtra = perNumber;
-  if(discountFlag){ perExtra = fullCotas <= 1 ? (oneQuota / 4) : (twoQuota / 8); }
+  if(discountFlag){ if(fullCotas === 1) perExtra = oneQuota / 4; else if(fullCotas >= 2) perExtra = twoQuota / 8; }
   return fullPrice + extras * perExtra;
 }
 function getBuyerSummary(unitOverride=null){

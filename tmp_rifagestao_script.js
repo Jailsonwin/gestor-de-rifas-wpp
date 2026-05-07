@@ -458,24 +458,34 @@ function saveValueConfig(){
 
 function calcComplementarTotal(oneQuota, twoQuota, perNumber, qty, discountFlag){
   if(qty <= 0) return 0;
+  // Less than 4 numbers: pay per number (no cota discount applies)
   if(qty < 4) return qty * perNumber;
-  const fullCotas = Math.floor(qty/4);
+  
+  // 4+ numbers: calculate full cotas + extras
+  const fullCotas = Math.floor(qty / 4);
   const extras = qty % 4;
-  // calculate full cotas price using oneQuota and twoQuota
+  
+  // Price of full quotas using oneQuota and twoQuota
   let fullPrice = 0;
   if(fullCotas === 1) fullPrice = oneQuota;
   else if(fullCotas === 2) fullPrice = twoQuota;
   else if(fullCotas > 2){
-    // use as many twoQuota as possible, remainder oneQuota
-    const pairs = Math.floor(fullCotas/2);
+    // Use as many twoQuota as possible, remainder oneQuota
+    const pairs = Math.floor(fullCotas / 2);
     const rem = fullCotas % 2;
     fullPrice = pairs * twoQuota + rem * oneQuota;
   }
-  // per-extra price
-  let perExtra = perNumber;
+  
+  // Price per extra number
+  let perExtra = perNumber; // Without discount: pay full per-number price
   if(discountFlag){
-    perExtra = fullCotas <= 1 ? (oneQuota / 4) : (twoQuota / 8);
+    // With discount: each extra is discounted based on how many full cotas
+    // If <=1 cota: extra = oneQuota/4
+    // If >=2 cotas: extra = twoQuota/8
+    if(fullCotas === 1) perExtra = oneQuota / 4;
+    else if(fullCotas >= 2) perExtra = twoQuota / 8;
   }
+  
   return fullPrice + extras * perExtra;
 }
 function getBuyerSummary(unitOverride=null){

@@ -1,14 +1,22 @@
 function calcComplementarTotal(oneQuota, twoQuota, perNumber, qty, discountFlag){
   if(qty <= 0) return 0;
+  // Less than 4 numbers: pay per number (no cota discount applies)
   if(qty < 4) return qty * perNumber;
-  const fullCotas = Math.floor(qty/4);
+  
+  // 4+ numbers: calculate full cotas + extras
+  const fullCotas = Math.floor(qty / 4);
   const extras = qty % 4;
+  
+  // Price of full quotas
   let fullPrice = 0;
   if(fullCotas === 1) fullPrice = oneQuota;
   else if(fullCotas === 2) fullPrice = twoQuota;
   else if(fullCotas > 2){ const pairs = Math.floor(fullCotas/2); const rem = fullCotas % 2; fullPrice = pairs * twoQuota + rem * oneQuota; }
+  
+  // Price per extra
   let perExtra = perNumber;
-  if(discountFlag){ perExtra = fullCotas <= 1 ? (oneQuota / 4) : (twoQuota / 8); }
+  if(discountFlag){ if(fullCotas === 1) perExtra = oneQuota / 4; else if(fullCotas >= 2) perExtra = twoQuota / 8; }
+  
   return fullPrice + extras * perExtra;
 }
 
