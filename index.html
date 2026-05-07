@@ -780,6 +780,70 @@ Valor de cada número da rifa da rifa: R$ {{valorCalculado}}
 
 Apenas {{quantidadeNumeros}} números.`;
 
+function formatRaffleNumber(n, type){
+  const num = Number(n);
+  if(type === "complementar"){
+    if(num === 100) return "00";
+    return String(num).padStart(2, "0");
+  }
+  return String(num).padStart(2, "0");
+}
+
+function getComplementarAnimalByNumber(number){
+  const idx = Math.min(animals.length - 1, Math.max(0, Math.floor((number - 1) / 4)));
+  const entry = animals[idx] || ["", ""];
+  return {emoji: entry[0], animal: entry[1]};
+}
+
+function generateComplementarNumbers(){
+  return Array.from({length: 100}, (_, i) => {
+    const number = i + 1;
+    const meta = getComplementarAnimalByNumber(number);
+    return {number, animal: meta.animal, emoji: meta.emoji, buyer: "", paid: false};
+  });
+}
+
+function migrateComplementarNumbers(raffle){
+  if(!raffle || !Array.isArray(raffle.numbers)) return raffle;
+  if(raffle.numbers.length === 100) return raffle;
+  const nextNumbers = generateComplementarNumbers();
+  const oldMap = new Map();
+  raffle.numbers.forEach(n => {
+    const num = Number(n.number);
+    if(Number.isFinite(num)) oldMap.set(num, n);
+  });
+  nextNumbers.forEach(n => {
+    const old = oldMap.get(n.number);
+    if(old){
+      n.buyer = old.buyer || "";
+      n.paid = !!old.paid;
+    }
+  });
+  raffle.numbers = nextNumbers;
+  return raffle;
+}
+
+function parseWinnerNumber(raw, type, max){
+  const val = String(raw || "").trim();
+  if(!val) return null;
+  if(type === "complementar"){
+    if(val === "00") return 100;
+    const num = Number(val);
+    if(!Number.isFinite(num)) return null;
+    if(num === 0) return 100;
+    if(num < 1 || num > max) return null;
+    return Math.trunc(num);
+  }
+  const num = Number(val);
+  if(!Number.isFinite(num) || num < 1 || num > max) return null;
+  return Math.trunc(num);
+}
+
+function formatNumberList(nums, type){
+  if(type !== "complementar") return nums.join(", ");
+  return nums.map(n => formatRaffleNumber(n, type)).join(", ");
+}
+
 const emptyMainRaffle = (type) => ({
   id: crypto.randomUUID(),
   type,
@@ -788,7 +852,7 @@ const emptyMainRaffle = (type) => ({
   numeroRifa: "",
   numWinners: 3,
   header: defaultHeader,
-  numbers: Array.from({length:25},(_,i)=>({number:i+1,animal:animals[i][1],emoji:animals[i][0],buyer:"",paid:false})),
+  numbers: type === "complementar" ? generateComplementarNumbers() : Array.from({length:25},(_,i)=>({number:i+1,animal:animals[i][1],emoji:animals[i][0],buyer:"",paid:false})),
   values:{oneQuota:178,twoQuotaPromo:320},
   discountComplementar: false,
   valuesComplementar:{perNumber:65, oneQuota:240, twoQuota:437},
@@ -833,6 +897,20 @@ function loadState(){
   if(saved){
     const s = JSON.parse(saved);
     ["premium","vip2","complementar"].forEach(k=>{ if(s[k]){ s[k].numeroRifa=s[k].numeroRifa||""; s[k].winnerNumbers=s[k].winnerNumbers||{w1:"",w2:"",w3:""}; s[k].resultTemplates = s[k].resultTemplates || getDefaultResultTemplates(); }});
+    if(s.complementar){
+      s.complementar = migrateComplementarNumbers(s.complementar);
+      s.complementar.valuesComplementar = s.complementar.valuesComplementar || {perNumber:65, oneQuota:240, twoQuota:437};
+      s.complementar.discountComplementar = !!s.complementar.discountComplementar;
+    }
+    if(Array.isArray(s.savedRaffles)){
+      s.savedRaffles.forEach(r => {
+        if(r && r.type === "complementar"){
+          migrateComplementarNumbers(r);
+          r.valuesComplementar = r.valuesComplementar || {perNumber:65, oneQuota:240, twoQuota:437};
+          r.discountComplementar = !!r.discountComplementar;
+        }
+      });
+    }
     if(s.rifaDaRifa){ s.rifaDaRifa.numeroRifaReferencia=s.rifaDaRifa.numeroRifaReferencia||""; s.rifaDaRifa.winnerNumbers=s.rifaDaRifa.winnerNumbers||{w1:"",w2:"",w3:""}; s.rifaDaRifa.resultTemplates = s.rifaDaRifa.resultTemplates || getDefaultResultTemplates(); }
     return s;
   }
@@ -919,7 +997,7 @@ function copyFormTemplate(){
   const today = new Date();
   const formattedDate = today.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   const raffleNumber = current === 'rifaDaRifa' ? (r.numeroRifaReferencia || r.numeroRifa || '') : (r.numeroRifa || '');
-  const raffleType = current === 'vip2' ? 'VIP 2' : current === 'premium' ? 'Premium' : 'Rifa da Rifa';
+  const raffleType = current === 'vip2' ? 'VIP 2' : current === 'premium' ? 'Premium' : current === 'complementar' ? 'Complementar' : 'Rifa da Rifa';
   const msg = `PREENCHA SEUS DADOS E O PRÊMIO.\nRESPONSÁVEL: 👉🏻 Jailson\nDATA: ${formattedDate}\nN. RIFA: ${raffleNumber} ${raffleType}\n\nPRODUTO:\nLADO DA MANIVELA:\n\nNOME:\nCPF: \nENDEREÇO:\nCIDADE: \nBAIRRO: \nESTADO: \nCEP:\nE-MAIL: \nTELEFONE: `;
   navigator.clipboard.writeText(msg);
   toast('Formulário copiado ✅');
@@ -1021,10 +1099,10 @@ function renderMainRaffle(){
       <button id="btnWinnersMain" class="green" ${canWin?"":"disabled"} onclick="showWinners()">🏆 Ganhadores</button>
       <button class="yellow" onclick="showValues()">💰 Valores</button>
       <button class="green" onclick="saveRaffle()">💾 Salvar</button>
-      <div style="display:flex;align-items:center;gap:10px;margin-left:8px">
+      ${current==="complementar" ? `<div style="display:flex;align-items:center;gap:10px;margin-left:8px">
         <span style="font-size:13px;color:var(--txt-muted)">Desconto em número complementar</span>
         <label class="switch"><input type="checkbox" ${r.discountComplementar?"checked":""} onchange="toggleDiscountComplementar(this.checked)"><span class="slider"></span></label>
-      </div>
+      </div>` : ""}
       ${bulkPayControlHtml()}
     </div>
     <table>
@@ -1032,7 +1110,7 @@ function renderMainRaffle(){
       <tbody>
         ${r.numbers.map((n,i)=>`
           <tr class="${n.paid?'row-paid':'row-pending'}">
-            <td><span class="num-badge">${n.number}</span></td>
+            <td><span class="num-badge">${r.type==="complementar" ? formatRaffleNumber(n.number, r.type) : n.number}</span></td>
             <td><div class="animal"><span>${n.emoji}</span><span class="animal-name">${n.animal}</span></div></td>
             <td><div class="buyer-wrap"><input placeholder="Nome do comprador" value="${escapeAttr(n.buyer)}" autocomplete="off" oninput="updateBuyer(${i},this.value); showBuyerSuggestions(${i}, this)" onfocus="onBuyerFocus(${i}, this)" onkeydown="handleBuyerKeydown(event, ${i}, this)" onblur="hideBuyerSuggestionsLater(this); finalizeBuyer(${i}, this)"><div class="buyer-suggest"></div></div></td>
             <td class="paid-cell"><label class="switch"><input type="checkbox" ${n.paid?"checked":""} onchange="handlePaidToggle(${i},this.checked)"><span class="slider"></span></label></td>
@@ -1139,14 +1217,14 @@ function handlePaidToggle(i,v){
 }
 function showBulkPayConfirm(buyer, buyerNumbers){
   const summary = getBuyerSummary().find(b => b.buyer.trim().toLowerCase() === buyer.toLowerCase());
-  const nums = buyerNumbers.map(n => n.number).join(", ");
+  const nums = formatNumberList(buyerNumbers.map(n => n.number), active().type);
   const total = summary ? summary.total : 0;
-  const alreadyPaid = buyerNumbers.filter(n => n.paid).map(n => n.number);
-  const pending = buyerNumbers.filter(n => !n.paid).map(n => n.number);
+  const alreadyPaid = formatNumberList(buyerNumbers.filter(n => n.paid).map(n => n.number), active().type);
+  const pending = formatNumberList(buyerNumbers.filter(n => !n.paid).map(n => n.number), active().type);
   const safeBuyer = encodeURIComponent(buyer);
   openModal("Confirmar pagamento do comprador", `
     <p style="margin-bottom:14px">O comprador <strong>${escapeHtml(buyer)}</strong> possui <strong>${buyerNumbers.length}</strong> número(s) nesta rifa.</p>
-    <div class="message-box">Números: ${escapeHtml(nums)}${alreadyPaid.length ? `<br>Já pagos: ${escapeHtml(alreadyPaid.join(", "))}` : ""}${pending.length ? `<br>Pendentes: ${escapeHtml(pending.join(", "))}` : ""}<br>Valor total: <strong>R$ ${money(total)}</strong><br>Pendente agora: <strong>R$ ${money(summary ? summary.pendingValue : 0)}</strong></div>
+    <div class="message-box">Números: ${escapeHtml(nums)}${alreadyPaid.length ? `<br>Já pagos: ${escapeHtml(alreadyPaid)}` : ""}${pending.length ? `<br>Pendentes: ${escapeHtml(pending)}` : ""}<br>Valor total: <strong>R$ ${money(total)}</strong><br>Pendente agora: <strong>R$ ${money(summary ? summary.pendingValue : 0)}</strong></div>
     <p class="small" style="margin-top:10px">Apenas os números pendentes serão ativados; os já pagos permanecem.</p>
     <div class="actions"><button class="green" onclick="confirmBulkPay('${safeBuyer}')">Confirmar pagamento de todos</button><button onclick="closeModal(); render();">Cancelar</button></div>
   `);
@@ -1182,6 +1260,14 @@ function generateMessage(){
     return header + "\n\n" + r.numbers.map(n=>`${String(n.number).padStart(2,"0")}- ${n.buyer || ""}${n.paid && n.buyer ? " ✅" : ""}`).join("\n");
   }
   const header = (r.header||"").trim().replaceAll("{{numeroRifa}}", r.numeroRifa||"");
+  if(current==="complementar"){
+    return header + "\n\n" + r.numbers.map(n=>{
+      const buyer = n.buyer || "";
+      const paid = n.paid && buyer ? " ✅" : "";
+      const name = buyer ? ` ${buyer}` : "";
+      return `${n.emoji}${formatRaffleNumber(n.number, "complementar")}${name}${paid}`;
+    }).join("\n");
+  }
   return header + "\n\n" + r.numbers.map(n=>`${n.emoji}${n.number}- ${n.buyer || ""}${n.paid && n.buyer ? " ✅" : ""}`).join("\n");
 }
 function applyVars(text){
@@ -1202,23 +1288,37 @@ async function copyMessage(){
 function showValues(){
   const r=active();
   if(current==="rifaDaRifa"){ const unit = calcRifaDaRifaValue(); openModal("Valores da Rifa da Rifa", renderValuesTable(unit)); return; }
+  if(current==="complementar"){
+    openModal("Valores", `
+      <div class="two">
+        <div><label>Valor por NÚMERO</label><input id="perNumber" type="number" step="0.01" value="${(r.valuesComplementar?.perNumber)||65}"></div>
+        <div><label>Valor de 1 COTA (4 números)</label><input id="oneQuota" type="number" step="0.01" value="${r.valuesComplementar?.oneQuota||0}"></div>
+      </div>
+      <div style="margin-top:8px"><label>Valor de 2 COTAS (8 números)</label><input id="twoQuota" type="number" step="0.01" value="${r.valuesComplementar?.twoQuota||0}"></div>
+      <div class="actions"><button class="green" onclick="saveValueConfig()">Salvar valores</button><button class="primary" onclick="copyValues()">Copiar resumo</button></div>
+      <div id="valuesArea" style="margin-top:14px">${renderValuesTable()}</div>
+    `);
+    return;
+  }
   openModal("Valores", `
     <div class="two">
-      <div><label>Valor por NÚMERO</label><input id="perNumber" type="number" step="0.01" value="${(r.valuesComplementar?.perNumber)||65}"></div>
-      <div><label>Valor de 1 COTA (4 números)</label><input id="oneQuota" type="number" step="0.01" value="${r.valuesComplementar?.oneQuota||r.values.oneQuota||0}"></div>
+      <div><label>Valor de 1 COTA</label><input id="oneQuota" type="number" step="0.01" value="${r.values.oneQuota||0}"></div>
+      <div><label>Valor de 2 COTAS</label><input id="twoQuota" type="number" step="0.01" value="${r.values.twoQuotaPromo||0}"></div>
     </div>
-    <div style="margin-top:8px"><label>Valor de 2 COTAS (8 números)</label><input id="twoQuota" type="number" step="0.01" value="${r.valuesComplementar?.twoQuota||r.values.twoQuotaPromo||0}"></div>
     <div class="actions"><button class="green" onclick="saveValueConfig()">Salvar valores</button><button class="primary" onclick="copyValues()">Copiar resumo</button></div>
     <div id="valuesArea" style="margin-top:14px">${renderValuesTable()}</div>
   `);
 }
 function saveValueConfig(){
-  active().values.oneQuota=Number(document.getElementById("oneQuota").value||0);
-  active().values.twoQuotaPromo=Number(document.getElementById("twoQuota").value||0);
-  active().valuesComplementar = active().valuesComplementar || {};
-  active().valuesComplementar.perNumber = Number(document.getElementById("perNumber").value||0);
-  active().valuesComplementar.oneQuota = Number(document.getElementById("oneQuota").value||0);
-  active().valuesComplementar.twoQuota = Number(document.getElementById("twoQuota").value||0);
+  if(current==="complementar"){
+    active().valuesComplementar = active().valuesComplementar || {};
+    active().valuesComplementar.perNumber = Number(document.getElementById("perNumber").value||0);
+    active().valuesComplementar.oneQuota = Number(document.getElementById("oneQuota").value||0);
+    active().valuesComplementar.twoQuota = Number(document.getElementById("twoQuota").value||0);
+  } else {
+    active().values.oneQuota=Number(document.getElementById("oneQuota").value||0);
+    active().values.twoQuotaPromo=Number(document.getElementById("twoQuota").value||0);
+  }
   markDirty(); logAction("Valores","Configuração de valores atualizada");
   localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
   document.getElementById("valuesArea").innerHTML=renderValuesTable();
@@ -1261,12 +1361,12 @@ function renderValuesTable(unitOverride=null){
   const rows=getBuyerSummary(unitOverride);
   if(!rows.length) return `<p class="small">Nenhum comprador preenchido ainda.</p>`;
   return `<table><thead><tr><th>Comprador</th><th>Cotas</th><th>Números</th><th>Total</th><th>Pagas</th><th>Pendentes</th><th>Valor pago</th><th>Pendente</th><th>Status</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td>${escapeHtml(r.buyer)}</td><td>${r.qty}</td><td>${r.numbers.join(", ")}</td><td>R$ ${money(r.total)}</td><td>${r.paid}</td><td>${r.pending}</td><td>R$ ${money(r.paidValue)}</td><td>R$ ${money(r.pendingValue)}</td><td><span class="pill ${r.status==='Pago'?'orange':''}">${r.status}</span></td></tr>`).join("")}
+    ${rows.map(r=>`<tr><td>${escapeHtml(r.buyer)}</td><td>${r.qty}</td><td>${formatNumberList(r.numbers, current)}</td><td>R$ ${money(r.total)}</td><td>${r.paid}</td><td>${r.pending}</td><td>R$ ${money(r.paidValue)}</td><td>R$ ${money(r.pendingValue)}</td><td><span class="pill ${r.status==='Pago'?'orange':''}">${r.status}</span></td></tr>`).join("")}
   </tbody></table>`;
 }
 async function copyValues(){
   const rows=getBuyerSummary(current==="rifaDaRifa"?calcRifaDaRifaValue():null);
-  const msg="💰 RESUMO DE VALORES\n\n"+rows.map(r=>`${r.buyer}\nCotas: ${r.qty}\nNúmeros: ${r.numbers.join(", ")}\nTotal: R$ ${money(r.total)}\nPago: R$ ${money(r.paidValue)}\nPendente: R$ ${money(r.pendingValue)}\nStatus: ${r.status}`).join("\n\n");
+  const msg="💰 RESUMO DE VALORES\n\n"+rows.map(r=>`${r.buyer}\nCotas: ${r.qty}\nNúmeros: ${formatNumberList(r.numbers, current)}\nTotal: R$ ${money(r.total)}\nPago: R$ ${money(r.paidValue)}\nPendente: R$ ${money(r.pendingValue)}\nStatus: ${r.status}`).join("\n\n");
   await navigator.clipboard.writeText(msg);
   logAction("Copiar valores","Resumo de valores copiado",msg);
   localStorage.setItem("rifas_whatsapp_app_v1", JSON.stringify(state));
@@ -1278,8 +1378,9 @@ function showWinners(){
   const wn = active().winnerNumbers || {w1:"",w2:"",w3:""};
   const numWinners = active().numWinners || 3;
   const fields = [];
+  const isComplementar = current === "complementar";
   for(let i=1; i<=numWinners; i++){
-    fields.push(`<div><label>${i}º sorteado</label><input id="w${i}" type="number" min="1" max="${max}" value="${wn['w'+i]||''}"></div>`);
+    fields.push(`<div><label>${i}º sorteado</label><input id="w${i}" type="${isComplementar ? "text" : "number"}" ${isComplementar ? 'inputmode="numeric" placeholder="00"' : `min="1" max="${max}"`} value="${wn['w'+i]||''}"></div>`);
   }
   openModal("Ganhadores", `
     <p class="small" style="margin-bottom:14px">Informe os números sorteados. Se o 1º não tiver comprador, o sistema gera a mensagem correta automaticamente.</p>
@@ -1299,10 +1400,11 @@ function calculateWinners(){
   const numWinners = r.numWinners || 3;
   const winnerVals = {};
   const inputNums = [];
+  const max = r.numbers.length;
   for(let i=1; i<=numWinners; i++){
     const val = document.getElementById("w"+i)?.value || "";
     winnerVals["w"+i] = val;
-    if(val) inputNums.push(Number(val));
+    inputNums.push(parseWinnerNumber(val, r.type, max));
   }
   // save the entered numbers
   r.winnerNumbers = winnerVals;
@@ -1323,7 +1425,7 @@ function calculateWinners(){
     const firstEntry = r.numbers.find(n=>n.number===firstNum);
     if(firstEntry && !firstEntry.buyer.trim()){
       const body = formatResultTemplate(r.resultTemplates.vacant, {
-        numero: String(firstNum).padStart(2,"0"),
+        numero: formatRaffleNumber(firstNum, r.type),
         numeroRifa: r.numeroRifa || "",
         numeroRifaReferencia: r.numeroRifaReferencia || "",
         numeroRifaPrincipal: r.numeroRifaPrincipal || "",
@@ -1345,6 +1447,7 @@ function calculateWinners(){
   // Collect all winners (only from numbers that have buyers)
   const winners=[];
   inputNums.forEach((num,idx)=>{
+    if(!num) return;
     const found=r.numbers.find(n=>n.number===num);
     if(found && found.buyer.trim()) winners.push({order:idx+1,num, buyer:found.buyer, paid:found.paid, animal:found.animal||"", emoji:found.emoji||""});
   });
@@ -1356,9 +1459,9 @@ function calculateWinners(){
     if(vacant){
       const firstWinner = winners[0];
       const paidLabel = firstWinner.paid ? " ✅" : "";
-      const winnerLine = `🎯 Número sorteado: ${String(firstWinner.num).padStart(2,"0")}${current==="rifaDaRifa" ? "" : (firstWinner.animal ? ` - ${firstWinner.animal}` : "")}\n🏆 Ganhador: ${firstWinner.buyer}${paidLabel}`;
+      const winnerLine = `🎯 Número sorteado: ${formatRaffleNumber(firstWinner.num, r.type)}${current==="rifaDaRifa" ? "" : (firstWinner.animal ? ` - ${firstWinner.animal}` : "")}\n🏆 Ganhador: ${firstWinner.buyer}${paidLabel}`;
       const body = formatResultTemplate(r.resultTemplates.partial, {
-        numero: String(firstWinner.num).padStart(2,"0"),
+        numero: formatRaffleNumber(firstWinner.num, r.type),
         numeroRifa: r.numeroRifa || "",
         numeroRifaReferencia: r.numeroRifaReferencia || "",
         numeroRifaPrincipal: r.numeroRifaPrincipal || "",
@@ -1371,10 +1474,10 @@ function calculateWinners(){
     } else {
       const winnersText = winners.map(w=>{
         const animalText = current==="rifaDaRifa" ? "" : (w.animal ? ` - ${w.animal}` : "");
-        return `${w.order}º número sorteado: ${String(w.num).padStart(2,"0")}${animalText}\nGanhador: ${w.buyer}${w.paid?" ✅":""}`;
+        return `${w.order}º número sorteado: ${formatRaffleNumber(w.num, r.type)}${animalText}\nGanhador: ${w.buyer}${w.paid?" ✅":""}`;
       }).join("\n\n");
       const body = formatResultTemplate(r.resultTemplates.normal, {
-        numero: String(winners[0].num).padStart(2,"0"),
+        numero: formatRaffleNumber(winners[0].num, r.type),
         numeroRifa: r.numeroRifa || "",
         numeroRifaReferencia: r.numeroRifaReferencia || "",
         numeroRifaPrincipal: r.numeroRifaPrincipal || "",
@@ -1420,7 +1523,7 @@ function renderSavedRafflesList(){
 }
 function showSavedRaffleDetails(idx){
   const r=(state.savedRaffles||[])[idx]; if(!r) return;
-  const winners=(r.winners||[]).length ? (r.winners||[]).map(w=>`${w.order}º - ${String(w.num).padStart(2,'0')} - ${escapeHtml(w.buyer||'')}`).join('<br>') : 'Não informado';
+  const winners=(r.winners||[]).length ? (r.winners||[]).map(w=>`${w.order}º - ${formatRaffleNumber(w.num, r.type)} - ${escapeHtml(w.buyer||'')}`).join('<br>') : 'Não informado';
   const valuesHtml = renderValuesTableForRaffle(r);
   const numLabel = r.type==='rifaDaRifa' ? `Rifa de referência: <strong>${escapeHtml(r.numeroRifaReferencia||'—')}</strong>` : `Número da rifa: <strong>${escapeHtml(r.numeroRifa||'—')}</strong>`;
   openModal('Detalhes da rifa salva', `
@@ -1451,7 +1554,7 @@ function labelType(t){ return t==='premium'?'Premium':t==='vip2'?'VIP 2':t==='co
 function renderValuesTableForRaffle(r){
   const rows=getBuyerSummaryFromRaffle(r);
   if(!rows.length) return '<p class="small">Sem compradores.</p>';
-  return `<table><thead><tr><th>Comprador</th><th>Cotas</th><th>Números</th><th>Total</th><th>Pagas</th><th>Pendentes</th><th>Valor pago</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${escapeHtml(row.buyer)}</td><td>${row.qty}</td><td>${row.numbers.join(', ')}</td><td>R$ ${money(row.total)}</td><td>${row.paid}</td><td>${row.pending}</td><td>R$ ${money(row.paidValue)}</td><td>R$ ${money(row.pendingValue)}</td><td>${row.status}</td></tr>`).join('')}</tbody></table>`;
+  return `<table><thead><tr><th>Comprador</th><th>Cotas</th><th>Números</th><th>Total</th><th>Pagas</th><th>Pendentes</th><th>Valor pago</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${escapeHtml(row.buyer)}</td><td>${row.qty}</td><td>${formatNumberList(row.numbers, r.type)}</td><td>R$ ${money(row.total)}</td><td>${row.paid}</td><td>${row.pending}</td><td>R$ ${money(row.paidValue)}</td><td>R$ ${money(row.pendingValue)}</td><td>${row.status}</td></tr>`).join('')}</tbody></table>`;
 }
 function getBuyerSummaryFromRaffle(r){
   const map={};
@@ -1489,6 +1592,11 @@ function mergeSavedRaffles(currentSaved = [], importedSaved = []){
   currentSaved.forEach(item => { if(item && item.id) map.set(item.id, item); });
   importedSaved.forEach(item => {
     if(!item || !item.id) return;
+    if(item.type === "complementar"){
+      migrateComplementarNumbers(item);
+      item.valuesComplementar = item.valuesComplementar || {perNumber:65, oneQuota:240, twoQuota:437};
+      item.discountComplementar = !!item.discountComplementar;
+    }
     const existing = map.get(item.id);
     if(!existing) {
       map.set(item.id, item);
@@ -1507,13 +1615,20 @@ function mergeSavedRaffles(currentSaved = [], importedSaved = []){
 function mergeRaffleState(current, imported){
   const next = {...current};
   next.savedRaffles = mergeSavedRaffles(current.savedRaffles || [], imported.savedRaffles || []);
-  ["premium","vip2","rifaDaRifa"].forEach(key => {
+  ["premium","vip2","complementar","rifaDaRifa"].forEach(key => {
     if(!imported[key] || typeof imported[key] !== "object") return;
     const currentItem = current[key] || {};
     if(currentItem.hasUnsavedChanges) return;
     const currentTime = currentItem.lastSavedAt ? new Date(currentItem.lastSavedAt).getTime() : 0;
     const importedTime = imported[key].lastSavedAt ? new Date(imported[key].lastSavedAt).getTime() : 0;
-    if(importedTime > currentTime) next[key] = imported[key];
+    if(importedTime > currentTime){
+      if(key === "complementar"){
+        migrateComplementarNumbers(imported[key]);
+        imported[key].valuesComplementar = imported[key].valuesComplementar || {perNumber:65, oneQuota:240, twoQuota:437};
+        imported[key].discountComplementar = !!imported[key].discountComplementar;
+      }
+      next[key] = imported[key];
+    }
   });
   return next;
 }
